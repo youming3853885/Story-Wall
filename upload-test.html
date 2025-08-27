@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上傳功能測試</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .info { border-left: 4px solid #2196F3; }
+        .warning { border-left: 4px solid #FF9800; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 0.8rem 1.5rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        pre { 
+            background: #f9f9f9; 
+            padding: 1rem; 
+            border-radius: 4px; 
+            font-size: 0.9rem; 
+            overflow-x: auto; 
+        }
+        input[type="file"] { margin: 1rem 0; }
+        .upload-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        .test-item {
+            background: #f9f9f9;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            border-left: 3px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 上傳功能完整測試</h1>
+    <p>這個工具會測試完整的上傳流程，包括 Storage 和資料庫功能</p>
+    
+    <div id="results"></div>
+    
+    <!-- 連線測試 -->
+    <div class="test-section info">
+        <h3>📡 步驟 1: 連線測試</h3>
+        <button onclick="testConnection()">測試 Supabase 連線</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <!-- Storage 測試 -->
+    <div class="test-section info">
+        <h3>📁 步驟 2: Storage Bucket 測試</h3>
+        <button onclick="testStorageBucket()">測試 Storage Bucket</button>
+        <div id="storageResult"></div>
+    </div>
+
+    <!-- 圖片上傳測試 -->
+    <div class="test-section info">
+        <h3>🖼️ 步驟 3: 圖片上傳測試</h3>
+        <input type="file" id="testImageInput" accept="image/*" onchange="previewImage()">
+        <div id="imagePreview"></div>
+        <button onclick="testImageUpload()" id="uploadBtn" disabled>測試圖片上傳</button>
+        <div id="uploadResult"></div>
+    </div>
+
+    <!-- 資料庫儲存測試 -->
+    <div class="test-section info">
+        <h3>💾 步驟 4: 資料庫儲存測試</h3>
+        <button onclick="testDatabaseSave()" id="saveBtn" disabled>測試資料庫儲存</button>
+        <div id="saveResult"></div>
+    </div>
+
+    <!-- 顯示測試 -->
+    <div class="test-section info">
+        <h3>👁️ 步驟 5: 顯示功能測試</h3>
+        <button onclick="testDisplayItems()">測試失物顯示</button>
+        <div id="displayResult"></div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        let testImageBlob = null;
+        let testImageUrl = null;
+
+        function log(elementId, type, title, content = '') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = `test-item ${type}`;
+            let html = `<strong>${title}</strong>`;
+            if (content) {
+                if (typeof content === 'object') {
+                    html += `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+                } else {
+                    html += `<br/>${content}`;
+                }
+            }
+            div.innerHTML = html;
+            element.appendChild(div);
+        }
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = '';
+            
+            try {
+                log('connectionResult', 'info', '🔍 測試 Supabase 連線...');
+                
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('count')
+                    .limit(1);
+
+                if (error) {
+                    log('connectionResult', 'error', '❌ 資料庫連線失敗', error.message);
+                } else {
+                    log('connectionResult', 'success', '✅ Supabase 連線成功');
+                }
+            } catch (err) {
+                log('connectionResult', 'error', '❌ 連線測試異常', err.message);
+            }
+        }
+
+        async function testStorageBucket() {
+            const resultDiv = document.getElementById('storageResult');
+            resultDiv.innerHTML = '';
+            
+            try {
+                log('storageResult', 'info', '🔍 測試 Storage Bucket...');
+                
+                // 測試列出 Bucket
+                const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+                
+                if (bucketError) {
+                    log('storageResult', 'error', '❌ 無法列出 Buckets', bucketError.message);
+                    return;
+                }
+                
+                const lostItemsBucket = buckets.find(bucket => bucket.name === 'lost-items-images');
+                
+                if (!lostItemsBucket) {
+                    log('storageResult', 'error', '❌ lost-items-images Bucket 不存在', 
+                        '請先在 Supabase Dashboard 創建此 Bucket');
+                    return;
+                }
+                
+                log('storageResult', 'success', '✅ lost-items-images Bucket 存在');
+                
+                // 測試 Bucket 權限
+                const testFile = new Blob(['test'], { type: 'text/plain' });
+                const testFileName = `test-${Date.now()}.txt`;
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('lost-items-images')
+                    .upload(testFileName, testFile);
+                
+                if (uploadError) {
+                    log('storageResult', 'warning', '⚠️ Storage 上傳權限問題', uploadError.message);
+                } else {
+                    log('storageResult', 'success', '✅ Storage 上傳權限正常');
+                    
+                    // 清理測試檔案
+                    await supabase.storage
+                        .from('lost-items-images')
+                        .remove([testFileName]);
+                }
+                
+            } catch (err) {
+                log('storageResult', 'error', '❌ Storage 測試異常', err.message);
+            }
+        }
+
+        function previewImage() {
+            const input = document.getElementById('testImageInput');
+            const preview = document.getElementById('imagePreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                testImageBlob = file;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.innerHTML = `<img src="${e.target.result}" class="upload-preview" alt="測試圖片">`;
+                };
+                reader.readAsDataURL(file);
+                
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function testImageUpload() {
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.innerHTML = '';
+            
+            if (!testImageBlob) {
+                log('uploadResult', 'error', '❌ 請先選擇圖片');
+                return;
+            }
+            
+            try {
+                log('uploadResult', 'info', '🔍 測試圖片上傳...');
+                
+                const timestamp = new Date().getTime();
+                const fileName = `test-upload/${timestamp}-test-image.jpg`;
+                
+                const { data, error } = await supabase.storage
+                    .from('lost-items-images')
+                    .upload(fileName, testImageBlob, {
+                        contentType: 'image/jpeg',
+                        upsert: false
+                    });
+                
+                if (error) {
+                    log('uploadResult', 'error', '❌ 圖片上傳失敗', error.message);
+                    return;
+                }
+                
+                // 獲取公開 URL
+                const { data: urlData } = supabase.storage
+                    .from('lost-items-images')
+                    .getPublicUrl(data.path);
+                
+                testImageUrl = urlData.publicUrl;
+                
+                log('uploadResult', 'success', '✅ 圖片上傳成功', `URL: ${testImageUrl}`);
+                
+                // 啟用下一步按鈕
+                document.getElementById('saveBtn').disabled = false;
+                
+            } catch (err) {
+                log('uploadResult', 'error', '❌ 上傳測試異常', err.message);
+            }
+        }
+
+        async function testDatabaseSave() {
+            const resultDiv = document.getElementById('saveResult');
+            resultDiv.innerHTML = '';
+            
+            if (!testImageUrl) {
+                log('saveResult', 'error', '❌ 請先完成圖片上傳測試');
+                return;
+            }
+            
+            try {
+                log('saveResult', 'info', '🔍 測試資料庫儲存...');
+                
+                const testData = {
+                    name: '測試失物',
+                    description: '這是上傳功能測試的測試失物',
+                    image_url: testImageUrl,
+                    found_location: '測試地點',
+                    story: '這是一個測試故事，用來驗證上傳功能是否正常運作。',
+                    finder_name: '測試者',
+                    found_time: new Date().toISOString()
+                };
+                
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    log('saveResult', 'error', '❌ 資料庫儲存失敗', error.message);
+                    return;
+                }
+
+                log('saveResult', 'success', '✅ 資料庫儲存成功', data[0]);
+                
+                // 儲存測試 ID 供後續清理
+                window.testItemId = data[0].id;
+                
+            } catch (err) {
+                log('saveResult', 'error', '❌ 儲存測試異常', err.message);
+            }
+        }
+
+        async function testDisplayItems() {
+            const resultDiv = document.getElementById('displayResult');
+            resultDiv.innerHTML = '';
+            
+            try {
+                log('displayResult', 'info', '🔍 測試失物顯示...');
+                
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) {
+                    log('displayResult', 'error', '❌ 讀取失物資料失敗', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    log('displayResult', 'warning', '⚠️ 沒有失物資料');
+                } else {
+                    log('displayResult', 'success', `✅ 成功讀取 ${data.length} 筆失物資料`);
+                    
+                    data.forEach((item, index) => {
+                        const hasImageUrl = !!item.image_url;
+                        const hasImageData = !!item.image_data;
+                        const imageInfo = hasImageUrl ? '有 Storage URL' : (hasImageData ? '有 Base64 資料' : '無圖片');
+                        
+                        log('displayResult', 'info', `失物 ${index + 1}: ${item.name}`, 
+                            `地點: ${item.found_location} | 圖片: ${imageInfo} | 故事: ${item.story ? '有' : '無'}`);
+                    });
+                }
+                
+                // 清理測試資料
+                if (window.testItemId) {
+                    log('displayResult', 'info', '🧹 清理測試資料...');
+                    await supabase
+                        .from('lost_items')
+                        .delete()
+                        .eq('id', window.testItemId);
+                    log('displayResult', 'success', '✅ 測試資料已清理');
+                }
+                
+            } catch (err) {
+                log('displayResult', 'error', '❌ 顯示測試異常', err.message);
+            }
+        }
+
+        // 頁面載入時自動測試連線
+        window.addEventListener('load', function() {
+            setTimeout(testConnection, 500);
+        });
+    </script>
+</body>
+</html>

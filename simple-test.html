@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡單連線測試</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .result {
+            background: white;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .info { border-left: 4px solid #2196F3; }
+        pre { background: #f9f9f9; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 0.8rem 1.5rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>🔍 簡單資料庫連線測試</h1>
+    
+    <div id="status">
+        <div class="result info">
+            <strong>正在初始化...</strong>
+        </div>
+    </div>
+
+    <button onclick="runTest()">執行測試</button>
+    <button onclick="clearStatus()">清除</button>
+
+    <script>
+        function log(type, title, content = '') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            let html = `<strong>${title}</strong>`;
+            if (content) {
+                html += typeof content === 'object' ? 
+                    `<pre>${JSON.stringify(content, null, 2)}</pre>` : 
+                    `<br/>${content}`;
+            }
+            div.innerHTML = html;
+            document.getElementById('status').appendChild(div);
+        }
+
+        function clearStatus() {
+            document.getElementById('status').innerHTML = '';
+        }
+
+        async function runTest() {
+            clearStatus();
+            
+            // 步驟 1: 檢查 Supabase 載入
+            log('info', '步驟 1: 檢查 Supabase 是否載入...');
+            
+            if (typeof window.supabase === 'undefined') {
+                log('error', '❌ Supabase CDN 未載入', '請檢查網路連線');
+                return;
+            }
+            log('success', '✅ Supabase CDN 已載入');
+
+            // 步驟 2: 初始化客戶端
+            log('info', '步驟 2: 初始化 Supabase 客戶端...');
+            
+            const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+            
+            let supabaseClient;
+            try {
+                supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+                log('success', '✅ Supabase 客戶端初始化成功', {
+                    url: supabaseUrl,
+                    keyLength: supabaseKey.length
+                });
+            } catch (error) {
+                log('error', '❌ 客戶端初始化失敗', error.message);
+                return;
+            }
+
+            // 步驟 3: 測試基本連線
+            log('info', '步驟 3: 測試資料庫連線...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('lost_items')
+                    .select('count', { count: 'exact', head: true });
+
+                if (error) {
+                    log('error', '❌ 資料庫連線失敗', {
+                        error: error.message,
+                        details: error.details,
+                        hint: error.hint
+                    });
+                } else {
+                    log('success', '✅ 資料庫連線成功！', `lost_items 表可以正常訪問`);
+                }
+            } catch (err) {
+                log('error', '❌ 連線測試異常', err.message);
+            }
+
+            // 步驟 4: 檢查表結構
+            log('info', '步驟 4: 檢查表結構...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('lost_items')
+                    .select('*')
+                    .limit(5);
+
+                if (error) {
+                    log('error', '❌ 無法讀取表資料', error.message);
+                } else {
+                    log('success', '✅ 表結構正常', {
+                        recordCount: data.length,
+                        sampleData: data.length > 0 ? data[0] : '無資料'
+                    });
+                }
+            } catch (err) {
+                log('error', '❌ 表結構檢查異常', err.message);
+            }
+
+            // 步驟 5: 檢查已歸還表
+            log('info', '步驟 5: 檢查 returned_items 表...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('returned_items')
+                    .select('count', { count: 'exact', head: true });
+
+                if (error) {
+                    log('error', '❌ returned_items 表不存在或無權限', error.message);
+                } else {
+                    log('success', '✅ returned_items 表正常');
+                }
+            } catch (err) {
+                log('error', '❌ returned_items 檢查異常', err.message);
+            }
+
+            log('info', '🎉 測試完成！');
+        }
+
+        // 頁面載入時自動執行
+        window.addEventListener('load', function() {
+            setTimeout(runTest, 500);
+        });
+    </script>
+</body>
+</html>

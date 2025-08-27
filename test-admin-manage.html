@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理功能測試</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 2rem;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        .success { background: #e8f5e8; border-left: 4px solid #4CAF50; }
+        .error { background: #ffebee; border-left: 4px solid #f44336; }
+        .info { background: #e3f2fd; border-left: 4px solid #2196F3; }
+        .warning { background: #fff3e0; border-left: 4px solid #ff9800; }
+        
+        .test-controls {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #4CAF50, #66BB6A);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+        
+        .test-button.secondary {
+            background: linear-gradient(135deg, #2196F3, #42A5F5);
+        }
+        
+        .search-area {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+        
+        .search-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-controls input,
+        .search-controls select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 150px;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .results-table th,
+        .results-table td {
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .results-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .results-table img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .action-btn {
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .action-btn.edit {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .action-btn.return {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .action-btn.delete {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 管理功能測試</h1>
+        <p>測試管理失物頁面的載入和搜尋功能</p>
+        
+        <div id="systemStatus" class="status info">
+            <strong>⏳ 系統初始化中...</strong>
+        </div>
+        
+        <div class="test-controls">
+            <button onclick="testLoadItems()" class="test-button">
+                📋 測試載入失物
+            </button>
+            <button onclick="testSearchFunction()" class="test-button secondary">
+                🔍 測試搜尋功能
+            </button>
+            <button onclick="clearResults()" class="test-button" style="background: #9e9e9e;">
+                🗑️ 清除結果
+            </button>
+        </div>
+        
+        <div class="search-area">
+            <h3>🔍 搜尋測試區</h3>
+            <div class="search-controls">
+                <input type="text" id="testSearchInput" placeholder="搜尋失物...">
+                <select id="testLocationFilter">
+                    <option value="">所有地點</option>
+                    <option value="操場">操場</option>
+                    <option value="圖書館">圖書館</option>
+                    <option value="川堂">川堂</option>
+                    <option value="教室">教室</option>
+                    <option value="校外">校外</option>
+                    <option value="走廊">走廊</option>
+                    <option value="廁所">廁所</option>
+                </select>
+                <button onclick="performSearch()" class="test-button">搜尋</button>
+            </div>
+        </div>
+        
+        <div id="resultsContainer">
+            <p>點擊上方按鈕開始測試</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        // 內嵌配置
+        window.LostItemsConfig = {
+            config: {
+                supabase: {
+                    url: 'https://oytgyizrtuqyxvxtgrlv.supabase.co',
+                    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs'
+                }
+            }
+        };
+
+        let supabase;
+        let allItems = [];
+
+        // 初始化
+        function initialize() {
+            try {
+                const config = window.LostItemsConfig.config;
+                supabase = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+                
+                updateStatus('success', 'Supabase 已初始化，準備測試');
+                
+            } catch (error) {
+                updateStatus('error', `初始化失敗: ${error.message}`);
+            }
+        }
+
+        // 測試載入失物
+        async function testLoadItems() {
+            updateStatus('info', '正在載入失物資料...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    updateStatus('error', `載入失敗: ${error.message}`);
+                    return;
+                }
+
+                allItems = data;
+                updateStatus('success', `成功載入 ${data.length} 筆失物資料`);
+                displayItems(data);
+
+            } catch (err) {
+                updateStatus('error', `載入錯誤: ${err.message}`);
+            }
+        }
+
+        // 測試搜尋功能
+        async function testSearchFunction() {
+            if (allItems.length === 0) {
+                updateStatus('warning', '請先載入失物資料');
+                return;
+            }
+
+            // 測試各種搜尋條件
+            const testCases = [
+                { name: '搜尋包含"水"的失物', searchTerm: '水', location: '' },
+                { name: '搜尋操場的失物', searchTerm: '', location: '操場' },
+                { name: '搜尋圖書館的失物', searchTerm: '', location: '圖書館' }
+            ];
+
+            let results = [];
+            
+            for (const testCase of testCases) {
+                const filtered = filterItems(allItems, testCase.searchTerm, testCase.location);
+                results.push(`${testCase.name}: ${filtered.length} 筆結果`);
+            }
+
+            updateStatus('success', `搜尋功能測試完成:\n${results.join('\n')}`);
+        }
+
+        // 執行搜尋
+        function performSearch() {
+            if (allItems.length === 0) {
+                updateStatus('warning', '請先載入失物資料');
+                return;
+            }
+
+            const searchTerm = document.getElementById('testSearchInput').value.toLowerCase();
+            const locationFilter = document.getElementById('testLocationFilter').value;
+
+            const filtered = filterItems(allItems, searchTerm, locationFilter);
+            
+            updateStatus('info', `搜尋結果: ${filtered.length} 筆失物`);
+            displayItems(filtered);
+        }
+
+        // 篩選項目
+        function filterItems(items, searchTerm, locationFilter) {
+            let filtered = items;
+
+            if (searchTerm) {
+                filtered = filtered.filter(item => {
+                    return item.name.toLowerCase().includes(searchTerm) || 
+                           (item.found_location && item.found_location.toLowerCase().includes(searchTerm)) ||
+                           (item.description && item.description.toLowerCase().includes(searchTerm)) ||
+                           (item.finder_name && item.finder_name.toLowerCase().includes(searchTerm));
+                });
+            }
+
+            if (locationFilter) {
+                filtered = filtered.filter(item => item.found_location === locationFilter);
+            }
+
+            return filtered;
+        }
+
+        // 顯示失物
+        function displayItems(items) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (items.length === 0) {
+                container.innerHTML = '<div class="status warning">沒有找到符合條件的失物</div>';
+                return;
+            }
+
+            let html = `
+                <h3>📊 失物列表 (${items.length} 筆)</h3>
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>圖片</th>
+                            <th>名稱</th>
+                            <th>發現地點</th>
+                            <th>發現時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            items.forEach(item => {
+                const imageSource = item.image_url || item.image_data || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"%3E%3Crect width="60" height="60" fill="%23F0F0F0"/%3E%3Ctext x="30" y="35" text-anchor="middle" font-family="Arial" font-size="10" fill="%23999"%3E無圖%3C/text%3E%3C/svg%3E';
+                const timeString = formatTime(item.found_time || item.created_at);
+
+                html += `
+                    <tr>
+                        <td><img src="${imageSource}" alt="${item.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 60 60&quot;%3E%3Crect width=&quot;60&quot; height=&quot;60&quot; fill=&quot;%23F0F0F0&quot;/%3E%3Ctext x=&quot;30&quot; y=&quot;35&quot; text-anchor=&quot;middle&quot; font-family=&quot;Arial&quot; font-size=&quot;10&quot; fill=&quot;%23999&quot;%3E失敗%3C/text%3E%3C/svg%3E'"></td>
+                        <td><strong>${item.name}</strong></td>
+                        <td>📍 ${item.found_location}</td>
+                        <td>${timeString}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn edit" onclick="testEdit(${item.id})">編輯</button>
+                                <button class="action-btn return" onclick="testReturn(${item.id}, '${item.name}')">歸還</button>
+                                <button class="action-btn delete" onclick="testDelete(${item.id})">刪除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // 測試操作函數
+        function testEdit(id) {
+            updateStatus('info', `測試編輯失物 ID: ${id}`);
+        }
+
+        function testReturn(id, name) {
+            updateStatus('info', `測試歸還失物: ${name} (ID: ${id})`);
+        }
+
+        function testDelete(id) {
+            updateStatus('info', `測試刪除失物 ID: ${id}`);
+        }
+
+        // 清除結果
+        function clearResults() {
+            document.getElementById('resultsContainer').innerHTML = '<p>結果已清除</p>';
+            document.getElementById('testSearchInput').value = '';
+            document.getElementById('testLocationFilter').value = '';
+            updateStatus('info', '結果已清除');
+        }
+
+        // 格式化時間
+        function formatTime(timeString) {
+            if (!timeString) return '未知';
+            
+            const date = new Date(timeString);
+            const now = new Date();
+            const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return '今天';
+            if (diffDays === 1) return '昨天';
+            if (diffDays === 2) return '前天';
+            if (diffDays <= 7) return `${diffDays}天前`;
+            return `${Math.floor(diffDays / 7)}週前`;
+        }
+
+        // 更新狀態
+        function updateStatus(type, message) {
+            const status = document.getElementById('systemStatus');
+            status.className = `status ${type}`;
+            
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            status.innerHTML = `<strong>${icon} ${message}</strong>`;
+        }
+
+        // 頁面載入初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initialize, 100);
+        });
+    </script>
+</body>
+</html>

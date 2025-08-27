@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試上傳修復</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 1rem 0;
+        }
+        .success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+        .error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+        .info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .preview-img {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        
+        .log {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .log .success { color: #4CAF50; }
+        .log .error { color: #F44336; }
+        .log .warning { color: #FF9800; }
+        .log .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🔧 測試上傳修復</h1>
+    
+    <div class="test-box info">
+        <h3>🐛 修復的問題</h3>
+        <p><strong>原問題：</strong>中文檔案名稱導致 Storage 上傳失敗</p>
+        <p><strong>修復方案：</strong>將中文字符轉換為安全的英文檔案名稱</p>
+        <p><strong>範例：</strong>"創業的痛苦.png" → "1755586102824-abc123-item-item-item-item.jpg"</p>
+    </div>
+
+    <div class="test-box">
+        <h3>📝 模擬上傳遺失物</h3>
+        
+        <label>失物名稱（可以使用中文）：</label>
+        <input type="text" id="itemName" value="紅色水壺" placeholder="輸入失物名稱">
+        
+        <label>發現地點：</label>
+        <select id="location">
+            <option value="操場">操場</option>
+            <option value="圖書館">圖書館</option>
+            <option value="川堂">川堂</option>
+            <option value="教室">教室</option>
+            <option value="校外">校外</option>
+        </select>
+        
+        <label>物品描述：</label>
+        <textarea id="description" placeholder="描述失物特徵">這是一個測試描述</textarea>
+        
+        <label>拾得者：</label>
+        <input type="text" id="finderName" value="測試員" placeholder="拾得者姓名">
+        
+        <label>選擇照片：</label>
+        <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto()">
+        <div id="photoPreview"></div>
+        
+        <button onclick="testCompleteUpload()" id="uploadBtn" disabled>🚀 測試完整上傳功能</button>
+    </div>
+
+    <div class="test-box">
+        <h3>📝 測試結果</h3>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-box">
+        <h3>📊 詳細日誌</h3>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">清除日誌</button>
+    </div>
+
+    <script>
+        // 初始化 Supabase
+        let supabase;
+        let uploadedPhoto = null;
+
+        // 等待配置載入
+        if (typeof window.LostItemsConfig !== 'undefined') {
+            const config = window.LostItemsConfig.config;
+            supabase = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+            console.log('Supabase 客戶端已初始化');
+        } else {
+            // 如果配置沒有載入，使用直接配置
+            const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : type === 'info' ? 'info' : '';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function previewPhoto() {
+            const input = document.getElementById('photoInput');
+            const preview = document.getElementById('photoPreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedPhoto = e.target.result;
+                    preview.innerHTML = `<img src="${uploadedPhoto}" class="preview-img" alt="預覽">`;
+                    uploadBtn.disabled = false;
+                    log(`📸 照片已選擇: ${file.name}`, 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // 修復後的檔案名稱生成函數
+        function generateSafeFileName(itemName) {
+            const timestamp = new Date().getTime();
+            const randomString = Math.random().toString(36).substring(7);
+            
+            // 將中文和特殊字符轉換為安全的檔案名稱
+            const safeItemName = itemName
+                .replace(/[\u4e00-\u9fff]/g, 'item') // 將中文字符替換為 'item'
+                .replace(/[^a-zA-Z0-9]/g, '-') // 將其他特殊字符替換為 '-'
+                .replace(/-+/g, '-') // 合併多個連續的 '-'
+                .replace(/^-|-$/g, ''); // 移除開頭和結尾的 '-'
+            
+            return `lost-items/${timestamp}-${randomString}-${safeItemName || 'lost-item'}.jpg`;
+        }
+
+        // 修復後的 Storage 上傳函數
+        async function uploadImageToStorage(imageDataUrl, itemName) {
+            try {
+                log('📤 開始上傳圖片到 Storage...', 'info');
+                
+                // 將 Base64 轉換為 Blob
+                const response = await fetch(imageDataUrl);
+                const blob = await response.blob();
+                log('✅ Base64 轉換為 Blob 成功', 'success');
+                
+                // 生成安全的檔案名稱
+                const fileName = generateSafeFileName(itemName);
+                log(`📝 生成安全檔案名稱: ${fileName}`, 'info');
+                
+                // 上傳到 Supabase Storage
+                const { data, error } = await supabase.storage
+                    .from('lost-items-images')
+                    .upload(fileName, blob, {
+                        contentType: 'image/jpeg',
+                        upsert: false
+                    });
+                
+                if (error) {
+                    log(`❌ Storage 上傳失敗: ${error.message}`, 'error');
+                    throw error;
+                }
+                
+                log(`✅ Storage 上傳成功: ${data.path}`, 'success');
+                
+                // 獲取公開 URL
+                const { data: urlData } = supabase.storage
+                    .from('lost-items-images')
+                    .getPublicUrl(data.path);
+                
+                log(`🔗 公開 URL: ${urlData.publicUrl}`, 'success');
+                return urlData.publicUrl;
+                
+            } catch (error) {
+                log(`❌ Storage 上傳過程失敗: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // 本地故事生成
+        function generateStoryLocally(itemName, location) {
+            const templates = [
+                `哈囉！我是${itemName}！今天我在${location}被發現了。我好想念我的小主人，希望他快來帶我回家。我會乖乖地等待，直到我們重新相遇的那一刻！`,
+                `大家好，我是${itemName}！我在${location}孤單地等待著。我記得小主人總是很愛護我，現在我好想念那溫暖的感覺。如果你認識我的主人，請告訴他我在這裡等他！`,
+                `嗨！我是${itemName}！我在${location}和小主人走散了。我每天都在想念我們一起度過的快樂時光。我相信小主人一定很擔心我，快來找我吧！`,
+                `你好！我是${itemName}！我在${location}被好心人發現。雖然現在很孤單，但我相信小主人一定會來找我的。我會耐心等待，因為我知道我們的緣分還沒結束！`
+            ];
+            return templates[Math.floor(Math.random() * templates.length)];
+        }
+
+        async function testCompleteUpload() {
+            clearLog();
+            log('🚀 開始測試完整上傳功能...', 'info');
+            
+            const itemName = document.getElementById('itemName').value;
+            const location = document.getElementById('location').value;
+            const description = document.getElementById('description').value;
+            const finderName = document.getElementById('finderName').value;
+            
+            if (!itemName || !location) {
+                log('❌ 請填寫失物名稱和發現地點！', 'error');
+                return;
+            }
+            
+            if (!uploadedPhoto) {
+                log('❌ 請先選擇照片！', 'error');
+                return;
+            }
+            
+            try {
+                document.getElementById('uploadBtn').disabled = true;
+                
+                // 步驟 1: 生成故事
+                log('📖 步驟 1: 生成故事...', 'info');
+                const story = generateStoryLocally(itemName, location);
+                log(`✅ 故事生成完成: ${story.substring(0, 50)}...`, 'success');
+                
+                // 步驟 2: 上傳照片到 Storage
+                log('📸 步驟 2: 上傳照片到 Storage...', 'info');
+                let imageUrl = null;
+                
+                try {
+                    imageUrl = await uploadImageToStorage(uploadedPhoto, itemName);
+                    log('✅ 照片上傳到 Storage 成功', 'success');
+                } catch (uploadError) {
+                    log(`⚠️ Storage 上傳失敗，將使用 Base64: ${uploadError.message}`, 'warning');
+                }
+                
+                // 步驟 3: 準備資料
+                log('📊 步驟 3: 準備資料庫資料...', 'info');
+                const itemData = {
+                    name: itemName,
+                    description: description,
+                    found_location: location,
+                    story: story,
+                    finder_name: finderName,
+                    found_time: new Date().toISOString()
+                };
+                
+                // 如果成功上傳到 Storage，使用 image_url，否則使用 image_data
+                if (imageUrl) {
+                    itemData.image_url = imageUrl;
+                    log('✅ 使用 Storage URL', 'success');
+                } else {
+                    itemData.image_data = uploadedPhoto;
+                    log('✅ 使用 Base64 資料', 'info');
+                }
+                
+                // 步驟 4: 插入資料庫
+                log('💾 步驟 4: 插入資料到資料庫...', 'info');
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .insert([itemData])
+                    .select();
+                
+                if (error) {
+                    log(`❌ 資料庫插入失敗: ${error.message}`, 'error');
+                    
+                    document.getElementById('testResults').innerHTML = `
+                        <div class="test-box error">
+                            <h4>❌ 測試失敗</h4>
+                            <p><strong>錯誤:</strong> ${error.message}</p>
+                            <p><strong>錯誤代碼:</strong> ${error.code}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                log(`✅ 資料庫插入成功！記錄 ID: ${data[0].id}`, 'success');
+                
+                // 步驟 5: 驗證資料
+                log('🔍 步驟 5: 驗證插入的資料...', 'info');
+                const { data: verifyData, error: verifyError } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .eq('id', data[0].id)
+                    .single();
+                
+                if (verifyError) {
+                    log(`⚠️ 驗證失敗: ${verifyError.message}`, 'warning');
+                } else {
+                    log('✅ 資料驗證成功！', 'success');
+                }
+                
+                // 顯示成功結果
+                document.getElementById('testResults').innerHTML = `
+                    <div class="test-box success">
+                        <h4>🎉 測試完全成功！</h4>
+                        <p><strong>記錄 ID:</strong> ${data[0].id}</p>
+                        <p><strong>失物名稱:</strong> ${verifyData.name}</p>
+                        <p><strong>發現地點:</strong> ${verifyData.found_location}</p>
+                        <p><strong>圖片儲存:</strong> ${verifyData.image_url ? 'Storage URL' : 'Base64 資料'}</p>
+                        <p><strong>故事:</strong> ${verifyData.story.substring(0, 100)}...</p>
+                        ${verifyData.image_url ? `<p><strong>圖片 URL:</strong> <a href="${verifyData.image_url}" target="_blank">查看圖片</a></p>` : ''}
+                        <p style="font-weight: bold; color: #155724; margin-top: 1rem;">
+                            ✅ 上傳遺失物功能已修復並正常運作！
+                        </p>
+                    </div>
+                `;
+                
+                log('🎉 完整上傳功能測試成功！', 'success');
+                
+                // 清理測試資料
+                setTimeout(async () => {
+                    try {
+                        await supabase.from('lost_items').delete().eq('id', data[0].id);
+                        if (verifyData.image_url) {
+                            // 從 URL 提取檔案路徑並刪除
+                            const urlParts = verifyData.image_url.split('/');
+                            const fileName = urlParts[urlParts.length - 1];
+                            await supabase.storage.from('lost-items-images').remove([`lost-items/${fileName}`]);
+                        }
+                        log('🧹 測試資料已清理', 'info');
+                    } catch (cleanupError) {
+                        log(`⚠️ 清理失敗: ${cleanupError.message}`, 'warning');
+                    }
+                }, 5000);
+                
+            } catch (err) {
+                log(`❌ 測試過程發生錯誤: ${err.message}`, 'error');
+                
+                document.getElementById('testResults').innerHTML = `
+                    <div class="test-box error">
+                        <h4>❌ 測試異常</h4>
+                        <p>${err.message}</p>
+                    </div>
+                `;
+            } finally {
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        // 頁面載入時顯示訊息
+        window.addEventListener('load', function() {
+            log('🔧 上傳修復測試工具已載入');
+            log('這個工具會測試修復後的上傳功能，包含中文檔案名稱處理');
+        });
+    </script>
+</body>
+</html>

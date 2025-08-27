@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復表名稱和欄位問題</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .result {
+            background: white;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .info { border-left: 4px solid #2196F3; }
+        .warning { border-left: 4px solid #FF9800; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 1rem 2rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 0.5rem 0;
+            width: 100%;
+        }
+        button:hover { background: #45a049; }
+        .sql-command {
+            background: #263238;
+            color: #eee;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 1rem 0;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .copy-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0;
+            width: auto;
+        }
+        pre {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 修復表名稱和欄位問題</h1>
+    
+    <div class="result error">
+        <h3>❌ 檢測到的問題</h3>
+        <ul>
+            <li><strong>表名稱不符</strong>：程式碼期望 "lost_items"，但實際表名是 "遺失物資料表"</li>
+            <li><strong>欄位名稱不符</strong>：程式碼使用英文欄位名，但表使用中文欄位名（如 "失物名稱"）</li>
+            <li><strong>主鍵衝突</strong>：duplicate key constraint "遺失物資料表_pkey"</li>
+        </ul>
+    </div>
+
+    <div class="result info">
+        <button onclick="checkActualTables()">🔍 檢查實際表結構</button>
+        <div id="tableResults"></div>
+    </div>
+
+    <div class="result warning" id="fixOptions" style="display: none;">
+        <h3>🛠️ 修復方案選擇</h3>
+        <p>請選擇您希望的修復方式：</p>
+        
+        <button onclick="showCreateEnglishTable()">方案 1: 創建英文表名和欄位（推薦）</button>
+        <button onclick="showUpdateCodeForChinese()">方案 2: 修改程式碼以適應中文表名</button>
+        
+        <div id="fixSolution" style="display: none;">
+            <h4>修復方案</h4>
+            <div class="sql-command" id="sqlCommand"></div>
+            <button class="copy-btn" onclick="copySQL()">📋 複製 SQL/程式碼</button>
+        </div>
+    </div>
+
+    <div class="result success" id="testSection" style="display: none;">
+        <h3>🧪 測試修復後的功能</h3>
+        <button onclick="testWithCorrectTable()">測試修復後的上傳功能</button>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function addResult(elementId, type, title, content) {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<h4>${title}</h4>${content}`;
+            document.getElementById(elementId).appendChild(div);
+        }
+
+        async function checkActualTables() {
+            document.getElementById('tableResults').innerHTML = '';
+            
+            try {
+                addResult('tableResults', 'info', '🔍 檢查實際的表...', '正在檢查資料庫中的表...');
+                
+                // 嘗試查詢可能的表名
+                const possibleTables = ['lost_items', '遺失物資料表', 'lost_item', '失物表'];
+                const existingTables = [];
+                
+                for (const tableName of possibleTables) {
+                    try {
+                        const { data, error } = await supabase
+                            .from(tableName)
+                            .select('*')
+                            .limit(1);
+                        
+                        if (!error) {
+                            existingTables.push({
+                                name: tableName,
+                                data: data,
+                                columns: data && data.length > 0 ? Object.keys(data[0]) : []
+                            });
+                        }
+                    } catch (err) {
+                        // 忽略錯誤，繼續檢查下一個表
+                    }
+                }
+                
+                if (existingTables.length === 0) {
+                    addResult('tableResults', 'error', '❌ 找不到任何表', '沒有找到任何相關的表。可能需要創建新表。');
+                    document.getElementById('fixOptions').style.display = 'block';
+                    return;
+                }
+                
+                // 顯示找到的表
+                existingTables.forEach(table => {
+                    const columnInfo = table.columns.length > 0 ? 
+                        `<br>欄位: ${table.columns.join(', ')}` : 
+                        '<br>表為空，無法檢測欄位';
+                    
+                    addResult('tableResults', 'success', 
+                        `✅ 找到表: ${table.name}`, 
+                        `記錄數: ${table.data.length}${columnInfo}`);
+                });
+                
+                // 如果找到中文表名，顯示修復選項
+                const hasChineseTable = existingTables.some(t => t.name === '遺失物資料表');
+                const hasEnglishTable = existingTables.some(t => t.name === 'lost_items');
+                
+                if (hasChineseTable && !hasEnglishTable) {
+                    addResult('tableResults', 'warning', '⚠️ 發現問題', 
+                        '找到中文表名 "遺失物資料表"，但程式碼期望英文表名 "lost_items"');
+                    document.getElementById('fixOptions').style.display = 'block';
+                } else if (hasEnglishTable) {
+                    addResult('tableResults', 'success', '✅ 表名稱正確', 
+                        '找到期望的 "lost_items" 表');
+                    document.getElementById('testSection').style.display = 'block';
+                }
+                
+            } catch (err) {
+                addResult('tableResults', 'error', '❌ 檢查過程發生錯誤', `錯誤: ${err.message}`);
+            }
+        }
+
+        function showCreateEnglishTable() {
+            const sql = `-- 方案 1: 創建英文表名和欄位的新表
+-- 這是推薦方案，符合程式碼期望
+
+-- 創建 lost_items 表
+CREATE TABLE IF NOT EXISTS lost_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    image_data TEXT,
+    found_location VARCHAR(50) NOT NULL DEFAULT '未知',
+    found_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    story TEXT,
+    finder_name VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 如果您已有中文表 "遺失物資料表" 的資料，可以將資料遷移過來
+-- INSERT INTO lost_items (name, found_location, found_time)
+-- SELECT "失物名稱", "發現地點", "發現時間" FROM "遺失物資料表";
+
+-- 創建 returned_items 表
+CREATE TABLE IF NOT EXISTS returned_items (
+    id SERIAL PRIMARY KEY,
+    original_lost_item_id INTEGER,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    image_data TEXT,
+    found_location VARCHAR(50) NOT NULL,
+    found_time TIMESTAMP WITH TIME ZONE,
+    story TEXT,
+    finder_name VARCHAR(50),
+    claimer_name VARCHAR(50),
+    claim_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    returned_by VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    notes TEXT
+);
+
+-- 禁用 RLS
+ALTER TABLE lost_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 重新整理 schema cache
+NOTIFY pgrst, 'reload schema';`;
+
+            document.getElementById('sqlCommand').textContent = sql;
+            document.getElementById('fixSolution').style.display = 'block';
+            document.getElementById('testSection').style.display = 'block';
+        }
+
+        function showUpdateCodeForChinese() {
+            const code = `// 方案 2: 修改程式碼以適應中文表名
+// 需要修改 script.js 中的所有資料庫操作
+
+// 在 script.js 中找到所有 .from('lost_items') 並替換為 .from('遺失物資料表')
+// 同時需要修改欄位名稱對應：
+
+const chineseFieldMapping = {
+    name: '失物名稱',
+    description: '物品描述', 
+    found_location: '發現地點',
+    story: '失物故事',
+    finder_name: '拾得者',
+    found_time: '發現時間',
+    image_data: '照片資料',
+    image_url: '照片網址',
+    created_at: '建立時間'
+};
+
+// 修改插入資料的範例：
+const itemData = {
+    '失物名稱': itemName,
+    '物品描述': description,
+    '發現地點': foundLocation,
+    '失物故事': story,
+    '拾得者': finderName,
+    '發現時間': new Date().toISOString()
+};
+
+const { data, error } = await supabase
+    .from('遺失物資料表')
+    .insert([itemData])
+    .select();
+
+// 注意：這個方案需要大量修改程式碼，不推薦`;
+
+            document.getElementById('sqlCommand').textContent = code;
+            document.getElementById('fixSolution').style.display = 'block';
+        }
+
+        async function testWithCorrectTable() {
+            document.getElementById('testResults').innerHTML = '';
+            
+            try {
+                addResult('testResults', 'info', '🧪 測試修復後的功能...', '正在測試 lost_items 表...');
+                
+                // 測試基本插入
+                const testData = {
+                    name: '測試失物',
+                    found_location: '測試地點',
+                    story: '這是一個測試故事',
+                    found_time: new Date().toISOString()
+                };
+                
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .insert([testData])
+                    .select();
+                
+                if (error) {
+                    addResult('testResults', 'error', '❌ 測試失敗', 
+                        `錯誤: ${error.message}<br>錯誤代碼: ${error.code}`);
+                    return;
+                }
+                
+                addResult('testResults', 'success', '✅ 測試成功！', 
+                    `成功插入測試資料，ID: ${data[0].id}`);
+                
+                // 測試查詢
+                const { data: queryData, error: queryError } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .eq('id', data[0].id)
+                    .single();
+                
+                if (queryError) {
+                    addResult('testResults', 'warning', '⚠️ 查詢測試失敗', 
+                        `錯誤: ${queryError.message}`);
+                } else {
+                    addResult('testResults', 'success', '✅ 查詢測試成功', 
+                        `查詢結果: ${JSON.stringify(queryData, null, 2)}`);
+                }
+                
+                // 清理測試資料
+                await supabase.from('lost_items').delete().eq('id', data[0].id);
+                addResult('testResults', 'info', '🧹 測試資料已清理', '');
+                
+                addResult('testResults', 'success', '🎉 修復完成！', 
+                    '現在您可以正常使用上傳功能了！');
+                
+            } catch (err) {
+                addResult('testResults', 'error', '❌ 測試過程發生錯誤', 
+                    `錯誤: ${err.message}`);
+            }
+        }
+
+        function copySQL() {
+            const content = document.getElementById('sqlCommand').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ 已複製！';
+                btn.style.background = '#4CAF50';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#2196F3';
+                }, 2000);
+            });
+        }
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', function() {
+            setTimeout(checkActualTables, 500);
+        });
+    </script>
+</body>
+</html>

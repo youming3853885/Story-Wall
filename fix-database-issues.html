@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復資料庫和 Storage 問題</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .error { border-left: 4px solid #F44336; }
+        .warning { border-left: 4px solid #FF9800; }
+        .success { border-left: 4px solid #4CAF50; }
+        .info { border-left: 4px solid #2196F3; }
+        
+        .sql-box {
+            background: #263238;
+            color: #eee;
+            padding: 1.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        
+        .copy-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0;
+        }
+        .copy-btn:hover { background: #1976D2; }
+        
+        .step {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #2196F3;
+        }
+        
+        .step h4 {
+            margin: 0 0 1rem 0;
+            color: #1976D2;
+        }
+        
+        ol li {
+            margin: 0.5rem 0;
+            line-height: 1.6;
+        }
+        
+        .important {
+            background: #FFF3E0;
+            border: 1px solid #FF9800;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛠️ 修復資料庫和 Storage 問題</h1>
+    
+    <div class="section error">
+        <h2>❌ 檢測到的問題</h2>
+        <ul>
+            <li><strong>Storage Bucket 不存在</strong>：lost-items-images Bucket 未創建</li>
+            <li><strong>資料庫表結構不完整</strong>：lost_items 表缺少 description 欄位</li>
+        </ul>
+    </div>
+
+    <div class="section info">
+        <h2>🏗️ 修復方案</h2>
+        
+        <div class="step">
+            <h4>步驟 1: 修復資料庫表結構</h4>
+            <p>在 Supabase Dashboard 的 SQL Editor 中執行以下 SQL：</p>
+            
+            <div class="sql-box">-- 修復 lost_items 表結構
+-- 添加缺少的欄位
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS image_data TEXT;
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS story TEXT;
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS finder_name VARCHAR(50);
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS found_time TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- 確保 found_location 欄位存在且有預設值
+ALTER TABLE lost_items ALTER COLUMN found_location SET DEFAULT '未知';
+
+-- 禁用 RLS 以避免權限問題
+ALTER TABLE lost_items DISABLE ROW LEVEL SECURITY;
+
+-- 創建 returned_items 表（如果不存在）
+CREATE TABLE IF NOT EXISTS returned_items (
+    id SERIAL PRIMARY KEY,
+    original_lost_item_id INTEGER,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    image_data TEXT,
+    found_location VARCHAR(50) NOT NULL DEFAULT '未知',
+    found_time TIMESTAMP WITH TIME ZONE,
+    story TEXT,
+    finder_name VARCHAR(50),
+    claimer_name VARCHAR(50),
+    claim_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    returned_by VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    notes TEXT
+);
+
+-- 禁用 returned_items 的 RLS
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 重新整理 schema cache
+NOTIFY pgrst, 'reload schema';</div>
+            
+            <button class="copy-btn" onclick="copySQL('sql1')">📋 複製 SQL</button>
+        </div>
+
+        <div class="step">
+            <h4>步驟 2: 創建 Storage Bucket</h4>
+            <ol>
+                <li>前往 <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a></li>
+                <li>選擇您的專案</li>
+                <li>點擊左側導航的 <strong>"Storage"</strong></li>
+                <li>點擊 <strong>"Create bucket"</strong> 按鈕</li>
+                <li>填寫以下資訊：
+                    <ul>
+                        <li><strong>Name</strong>: <code>lost-items-images</code></li>
+                        <li><strong>Public bucket</strong>: ✅ 勾選</li>
+                        <li><strong>File size limit</strong>: <code>5MB</code></li>
+                    </ul>
+                </li>
+                <li>點擊 <strong>"Create bucket"</strong></li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h4>步驟 3: 設置 Storage 權限政策</h4>
+            <p>在創建 Bucket 後，需要設置權限政策。在 Storage 頁面找到 lost-items-images Bucket，點擊設置：</p>
+            
+            <div class="sql-box">-- 允許公開上傳圖片
+CREATE POLICY "允許公開上傳圖片" ON storage.objects
+FOR INSERT 
+TO public 
+WITH CHECK (bucket_id = 'lost-items-images');
+
+-- 允許公開讀取圖片
+CREATE POLICY "允許公開讀取圖片" ON storage.objects
+FOR SELECT 
+TO public 
+USING (bucket_id = 'lost-items-images');
+
+-- 允許公開刪除圖片（可選，用於測試時清理）
+CREATE POLICY "允許公開刪除圖片" ON storage.objects
+FOR DELETE 
+TO public 
+USING (bucket_id = 'lost-items-images');</div>
+            
+            <button class="copy-btn" onclick="copySQL('sql2')">📋 複製 Storage 政策 SQL</button>
+        </div>
+    </div>
+
+    <div class="important">
+        <h3>⚠️ 重要提醒</h3>
+        <ul>
+            <li><strong>執行順序很重要</strong>：先執行步驟 1 的 SQL，再創建 Storage Bucket</li>
+            <li><strong>檢查執行結果</strong>：確認每個 SQL 語句都成功執行</li>
+            <li><strong>重新整理 Supabase</strong>：執行完 SQL 後，重新整理一下 Supabase Dashboard</li>
+        </ul>
+    </div>
+
+    <div class="section success">
+        <h2>✅ 驗證修復結果</h2>
+        <p>完成上述步驟後，請：</p>
+        <ol>
+            <li>重新執行 <code>quick-upload-test.html</code></li>
+            <li>檢查是否還有錯誤訊息</li>
+            <li>如果仍有問題，請提供新的錯誤日誌</li>
+        </ol>
+    </div>
+
+    <div class="section info">
+        <h2>🔍 如何在 Supabase 執行 SQL</h2>
+        <ol>
+            <li>登入 <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a></li>
+            <li>選擇您的專案 <strong>凱旋-失物故事牆</strong></li>
+            <li>點擊左側導航的 <strong>"SQL Editor"</strong></li>
+            <li>在編輯器中貼上上面的 SQL</li>
+            <li>點擊 <strong>"Run"</strong> 按鈕執行</li>
+            <li>確認看到 <strong>"Success"</strong> 訊息</li>
+        </ol>
+    </div>
+
+    <script>
+        function copySQL(id) {
+            const sqlBoxes = document.querySelectorAll('.sql-box');
+            const index = id === 'sql1' ? 0 : 1;
+            const text = sqlBoxes[index].textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ 已複製！';
+                btn.style.background = '#4CAF50';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#2196F3';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

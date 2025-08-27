@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>調試確認姓名按鈕</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 2rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .warning { border-left: 4px solid #FF9800; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        
+        .log {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .log .success { color: #4CAF50; }
+        .log .error { color: #F44336; }
+        .log .warning { color: #FF9800; }
+        .log .info { color: #2196F3; }
+        
+        input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin: 0.5rem 0;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 調試確認姓名按鈕</h1>
+    
+    <div class="test-section">
+        <h3>🎯 問題診斷</h3>
+        <p>測試「確認姓名」按鈕的各種可能問題：</p>
+        <button onclick="runDiagnostics()">🚀 開始診斷</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 模擬測試</h3>
+        <p>模擬完整的找到主人流程：</p>
+        
+        <!-- 模擬輸入區域 -->
+        <div style="margin: 1rem 0;">
+            <label>測試姓名輸入：</label>
+            <input type="text" id="testOwnerNameInput" placeholder="輸入測試姓名" onkeypress="if(event.key==='Enter') testConfirmOwnerName()">
+            <button onclick="testConfirmOwnerName()" class="owner-btn primary">
+                ✅ 測試確認姓名
+            </button>
+        </div>
+        
+        <!-- 模擬第二個彈窗 -->
+        <div id="testConfirmArea" style="display: none; background: #e8f5e8; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+            <h4>📋 確認資訊</h4>
+            <div id="testConfirmInfo"></div>
+            <button onclick="testFinalizeOwnerFound()" class="owner-btn primary confirm">
+                🎉 測試最終確認
+            </button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 診斷日誌</h3>
+        <div id="log" class="log">準備開始診斷...\n</div>
+        <button onclick="clearLog()">清除日誌</button>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : type === 'info' ? 'info' : '';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function runDiagnostics() {
+            log('🔍 開始診斷確認姓名按鈕問題...', 'info');
+            
+            // 1. 檢查函數是否存在
+            log('1️⃣ 檢查必要函數是否存在...', 'info');
+            
+            const functions = [
+                'confirmOwnerName',
+                'showOwnerInputModal', 
+                'hideOwnerInputModal',
+                'showOwnerConfirmModal',
+                'hideOwnerConfirmModal',
+                'finalizeOwnerFound'
+            ];
+            
+            functions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    log(`✅ ${funcName} 函數存在`, 'success');
+                } else {
+                    log(`❌ ${funcName} 函數不存在或不可訪問`, 'error');
+                }
+            });
+            
+            // 2. 檢查全局變數
+            log('2️⃣ 檢查全局變數...', 'info');
+            
+            const variables = ['currentFoundItem', 'currentOwnerName', 'supabase'];
+            variables.forEach(varName => {
+                if (typeof window[varName] !== 'undefined') {
+                    log(`✅ ${varName} 變數存在: ${typeof window[varName]}`, 'success');
+                } else {
+                    log(`❌ ${varName} 變數不存在`, 'error');
+                }
+            });
+            
+            // 3. 檢查 DOM 元素
+            log('3️⃣ 檢查必要的 DOM 元素...', 'info');
+            
+            const elements = [
+                'ownerInputModal',
+                'ownerNameInput', 
+                'confirmOwnerBtn',
+                'ownerConfirmModal',
+                'foundItemPreview',
+                'confirmInfo'
+            ];
+            
+            elements.forEach(elemId => {
+                const elem = document.getElementById(elemId);
+                if (elem) {
+                    log(`✅ 元素 #${elemId} 存在`, 'success');
+                } else {
+                    log(`❌ 元素 #${elemId} 不存在`, 'error');
+                }
+            });
+            
+            // 4. 測試按鈕事件綁定
+            log('4️⃣ 測試按鈕事件綁定...', 'info');
+            
+            const confirmBtn = document.getElementById('confirmOwnerBtn');
+            if (confirmBtn) {
+                const onclickAttr = confirmBtn.getAttribute('onclick');
+                log(`按鈕 onclick 屬性: ${onclickAttr}`, 'info');
+                
+                if (onclickAttr && onclickAttr.includes('confirmOwnerName')) {
+                    log('✅ 按鈕 onclick 屬性正確設置', 'success');
+                } else {
+                    log('❌ 按鈕 onclick 屬性設置異常', 'error');
+                }
+            }
+            
+            // 5. 測試 JavaScript 錯誤
+            log('5️⃣ 檢查是否有 JavaScript 錯誤...', 'info');
+            
+            window.addEventListener('error', function(e) {
+                log(`❌ JavaScript 錯誤: ${e.message} (${e.filename}:${e.lineno})`, 'error');
+            });
+            
+            log('✅ 診斷完成！請查看上述結果找出問題所在。', 'success');
+        }
+
+        // 測試函數
+        function testConfirmOwnerName() {
+            const testName = document.getElementById('testOwnerNameInput').value.trim();
+            log(`🧪 測試確認姓名函數，輸入: "${testName}"`, 'info');
+            
+            if (!testName) {
+                log('❌ 請輸入測試姓名', 'error');
+                alert('請輸入測試姓名');
+                return;
+            }
+            
+            if (testName.length < 2) {
+                log('❌ 姓名長度不足', 'error');
+                alert('請輸入完整的姓名（至少2個字）');
+                return;
+            }
+            
+            log('✅ 驗證通過，顯示確認區域', 'success');
+            
+            // 顯示測試確認區域
+            document.getElementById('testConfirmInfo').innerHTML = `
+                <div><strong>測試姓名：</strong> ${testName}</div>
+                <div><strong>測試時間：</strong> ${new Date().toLocaleString('zh-TW')}</div>
+            `;
+            
+            document.getElementById('testConfirmArea').style.display = 'block';
+            
+            log('🎯 模擬第一步完成，現在可以測試最終確認', 'success');
+        }
+
+        function testFinalizeOwnerFound() {
+            log('🎉 測試最終確認函數', 'info');
+            alert('測試成功！如果看到這個訊息，說明函數調用正常。');
+            log('✅ 最終確認測試完成', 'success');
+            
+            // 隱藏測試區域
+            document.getElementById('testConfirmArea').style.display = 'none';
+            document.getElementById('testOwnerNameInput').value = '';
+        }
+
+        // 頁面載入時自動診斷
+        window.addEventListener('load', function() {
+            log('🔧 確認姓名按鈕調試工具已載入', 'info');
+            setTimeout(runDiagnostics, 500);
+        });
+
+        // 監聽點擊事件來調試
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'confirmOwnerBtn') {
+                log('👆 檢測到確認姓名按鈕被點擊', 'info');
+            }
+        });
+
+        // 監聽錯誤
+        window.addEventListener('error', function(e) {
+            log(`❌ 全局錯誤: ${e.message}`, 'error');
+        });
+    </script>
+</body>
+</html>

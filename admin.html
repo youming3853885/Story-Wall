@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>失物故事牆 - 管理系統</title>
+    <link rel="stylesheet" href="admin-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- 側邊導航 -->
+        <nav class="sidebar">
+            <div class="logo-section">
+                <svg class="logo-icon" viewBox="0 0 100 100" width="40" height="40">
+                    <circle cx="50" cy="50" r="45" fill="#FF6B6B" stroke="#fff" stroke-width="4"/>
+                    <circle cx="38" cy="42" r="6" fill="#fff"/>
+                    <circle cx="62" cy="42" r="6" fill="#fff"/>
+                    <path d="M35 65 Q50 75 65 65" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+                </svg>
+                <h2 class="logo-text">管理系統</h2>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item active" onclick="showSection('upload')">
+                    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+                    </svg>
+                    <span>新增失物</span>
+                </li>
+                <li class="nav-item" onclick="showSection('manage')">
+                    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M16,15H9V13H16V15M19,11H9V9H19V11M19,7H9V5H19V7M4,15H6V13H4V15M4,11H6V9H4V11M4,7H6V5H4V7M4,3A2,2 0 0,0 2,5V19A2,2 0 0,0 4,21H20A2,2 0 0,0 22,19V5C22,3.89 21.1,3 20,3H4Z" fill="currentColor"/>
+                    </svg>
+                    <span>管理失物</span>
+                </li>
+                <li class="nav-item" onclick="showSection('stats')">
+                    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z" fill="currentColor"/>
+                    </svg>
+                    <span>統計報表</span>
+                </li>
+                <li class="nav-item" onclick="backToDisplay()">
+                    <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" fill="currentColor"/>
+                    </svg>
+                    <span>回到故事牆</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 主要內容區域 -->
+        <main class="main-content">
+            <!-- 新增失物區域 -->
+            <section id="uploadSection" class="content-section active">
+                <div class="section-header">
+                    <h1>新增失物</h1>
+                    <p>拍照上傳失物，系統將自動生成溫馨故事</p>
+                </div>
+
+                <div class="upload-form">
+                    <div class="upload-steps">
+                        <div class="step active">
+                            <span class="step-number">1</span>
+                            <span class="step-text">拍照上傳</span>
+                        </div>
+                        <div class="step-line"></div>
+                        <div class="step">
+                            <span class="step-number">2</span>
+                            <span class="step-text">填寫資訊</span>
+                        </div>
+                        <div class="step-line"></div>
+                        <div class="step">
+                            <span class="step-number">3</span>
+                            <span class="step-text">生成故事</span>
+                        </div>
+                    </div>
+
+                    <div class="form-container">
+                        <!-- 拍照上傳區域 -->
+                        <div class="photo-upload-area">
+                            <div class="camera-container" id="cameraContainer">
+                                <video id="cameraVideo" autoplay muted></video>
+                                <canvas id="photoCanvas" style="display: none;"></canvas>
+                                <div class="camera-overlay">
+                                    <button id="startCameraBtn" class="camera-btn primary">
+                                        <svg viewBox="0 0 24 24" width="24" height="24">
+                                            <path d="M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" fill="currentColor"/>
+                                        </svg>
+                                        開啟相機
+                                    </button>
+                                    <button id="captureBtn" class="camera-btn primary" style="display: none;">
+                                        <svg viewBox="0 0 24 24" width="24" height="24">
+                                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="6" fill="currentColor"/>
+                                        </svg>
+                                        拍照
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="upload-options">
+                                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                                <button id="uploadFileBtn" class="upload-btn secondary">
+                                    <svg viewBox="0 0 24 24" width="20" height="20">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+                                    </svg>
+                                    或選擇檔案上傳
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 失物資訊表單 -->
+                        <div class="item-info-form">
+                            <div class="form-group">
+                                <label for="itemName">失物名稱 *</label>
+                                <input type="text" id="itemName" placeholder="例如：紅色水壺、藍色鉛筆盒" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="foundLocation">發現地點 *</label>
+                                <select id="foundLocation" required>
+                                    <option value="">請選擇地點</option>
+                                    <option value="操場">操場</option>
+                                    <option value="圖書館">圖書館</option>
+                                    <option value="川堂">川堂</option>
+                                    <option value="教室">教室</option>
+                                    <option value="校外">校外</option>
+                                    <option value="走廊">走廊</option>
+                                    <option value="廁所">廁所</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="foundTime">發現時間</label>
+                                <input type="datetime-local" id="foundTime">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itemDescription">物品描述</label>
+                                <textarea id="itemDescription" placeholder="描述失物的特徵、顏色、大小等（可選）" rows="3"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="finderName">拾得者</label>
+                                <input type="text" id="finderName" placeholder="拾得者姓名（可選）">
+                            </div>
+                        </div>
+
+                        <!-- 故事生成區域 -->
+                        <div class="story-generation">
+                            <div class="story-preview" id="storyPreview" style="display: none;">
+                                <h3>生成的故事預覽</h3>
+                                <div class="story-content-preview">
+                                    <p id="generatedStory">故事生成中...</p>
+                                </div>
+                                <div class="story-actions">
+                                    <button id="regenerateStoryBtn" class="btn secondary">重新生成</button>
+                                    <button id="editStoryBtn" class="btn secondary">手動編輯</button>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button id="generateStoryBtn" class="btn primary large">
+                                    <svg viewBox="0 0 24 24" width="20" height="20">
+                                        <path d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M10,12A1.5,1.5 0 0,1 8.5,10.5A1.5,1.5 0 0,1 10,9A1.5,1.5 0 0,1 11.5,10.5A1.5,1.5 0 0,1 10,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20Z" fill="currentColor"/>
+                                    </svg>
+                                    生成失物故事
+                                </button>
+                                <button id="saveItemBtn" class="btn success large" style="display: none;">
+                                    <svg viewBox="0 0 24 24" width="20" height="20">
+                                        <path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" fill="currentColor"/>
+                                    </svg>
+                                    儲存失物資料
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 管理失物區域 -->
+            <section id="manageSection" class="content-section">
+                <div class="section-header">
+                    <h1>管理失物</h1>
+                    <p>查看和管理所有失物記錄</p>
+                </div>
+
+                <div class="manage-tools">
+                    <div class="search-bar">
+                        <input type="text" placeholder="搜尋失物..." id="searchInput">
+                        <button class="search-btn">
+                            <svg viewBox="0 0 24 24" width="20" height="20">
+                                <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="filter-options">
+                        <select id="statusFilter">
+                            <option value="">所有狀態</option>
+                            <option value="unclaimed">未認領</option>
+                            <option value="claimed">已認領</option>
+                        </select>
+                        <select id="locationFilter">
+                            <option value="">所有地點</option>
+                            <option value="操場">操場</option>
+                            <option value="圖書館">圖書館</option>
+                            <option value="川堂">川堂</option>
+                            <option value="教室">教室</option>
+                            <option value="校外">校外</option>
+                            <option value="走廊">走廊</option>
+                            <option value="廁所">廁所</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="items-table">
+                    <table id="itemsTable">
+                        <thead>
+                            <tr>
+                                <th>照片</th>
+                                <th>名稱</th>
+                                <th>發現地點</th>
+                                <th>發現時間</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody">
+                            <!-- 資料將透過 JavaScript 動態載入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 統計報表區域 -->
+            <section id="statsSection" class="content-section">
+                <div class="section-header">
+                    <h1>統計報表</h1>
+                    <p>失物收集和認領統計分析</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="30" height="30">
+                                <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" fill="#FF6B6B"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>總失物數量</h3>
+                            <p class="stat-number" id="totalItems">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="30" height="30">
+                                <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" fill="#4CAF50"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>已認領</h3>
+                            <p class="stat-number" id="claimedItems">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="30" height="30">
+                                <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8Z" fill="#FFA726"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>等待認領</h3>
+                            <p class="stat-number" id="unclaimedItems">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="30" height="30">
+                                <path d="M16,15H9V13H16V15M19,11H9V9H19V11M19,7H9V5H19V7M4,15H6V13H4V15M4,11H6V9H4V11M4,7H6V5H4V7M4,3A2,2 0 0,0 2,5V19A2,2 0 0,0 4,21H20A2,2 0 0,0 22,19V5C22,3.89 21.1,3 20,3H4Z" fill="#9C27B0"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <h3>認領率</h3>
+                            <p class="stat-number" id="claimRate">0%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>每日失物統計</h3>
+                        <div class="chart-placeholder">
+                            <p>圖表功能開發中...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-card">
+                        <h3>地點分布</h3>
+                        <div class="chart-placeholder">
+                            <p>圖表功能開發中...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 內嵌配置，避免外部文件載入問題 -->
+    <script>
+        window.LostItemsConfig = {
+            config: {
+                supabase: {
+                    url: 'https://oytgyizrtuqyxvxtgrlv.supabase.co',
+                    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs'
+                },
+                app: {
+                    adminPassword: '1234'
+                }
+            }
+        };
+    </script>
+    <script src="admin-script.js"></script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復 returned_items 表結構</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 2rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .warning { border-left: 4px solid #FF9800; }
+        .info { border-left: 4px solid #2196F3; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .log {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .log .success { color: #4CAF50; }
+        .log .error { color: #F44336; }
+        .log .warning { color: #FF9800; }
+        .log .info { color: #2196F3; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        th { background: #f5f5f5; }
+        .missing { background: #ffebee; color: #c62828; }
+        .exists { background: #e8f5e8; color: #2e7d32; }
+        
+        .sql-code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 修復 returned_items 表結構</h1>
+    
+    <div class="section info">
+        <h3>📋 修復目標</h3>
+        <p>檢查並修復 <code>returned_items</code> 表的結構問題：</p>
+        <ul>
+            <li>確保所有必要欄位存在</li>
+            <li>修復欄位名稱不一致問題</li>
+            <li>禁用 RLS 以便正常操作</li>
+            <li>刷新 schema cache</li>
+        </ul>
+        <button onclick="checkTableStructure()">🔍 檢查表格結構</button>
+        <button onclick="executeFixSQL()">🛠️ 執行修復 SQL</button>
+        <button onclick="testInsertion()">🧪 測試插入資料</button>
+    </div>
+
+    <div class="section">
+        <h3>📊 當前表格結構</h3>
+        <div id="tableStructure">點擊「檢查表格結構」查看當前狀態</div>
+    </div>
+
+    <div class="section">
+        <h3>🛠️ 修復 SQL 語句</h3>
+        <p>如果自動修復失敗，請手動在 Supabase SQL Editor 中執行以下 SQL：</p>
+        <div class="sql-code" id="fixSQL">-- 修復 returned_items 表結構
+
+-- 確保表格存在
+CREATE TABLE IF NOT EXISTS returned_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 添加缺少的欄位
+ALTER TABLE returned_items 
+ADD COLUMN IF NOT EXISTS original_lost_item_id INTEGER,
+ADD COLUMN IF NOT EXISTS description TEXT,
+ADD COLUMN IF NOT EXISTS image_url TEXT,
+ADD COLUMN IF NOT EXISTS image_data TEXT,
+ADD COLUMN IF NOT EXISTS found_location VARCHAR(50),
+ADD COLUMN IF NOT EXISTS found_time TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS story TEXT,
+ADD COLUMN IF NOT EXISTS finder_name VARCHAR(50),
+ADD COLUMN IF NOT EXISTS claimer_name VARCHAR(50),
+ADD COLUMN IF NOT EXISTS claim_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS returned_by VARCHAR(50),
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 禁用 RLS
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 設置權限
+GRANT ALL ON returned_items TO anon;
+GRANT ALL ON returned_items TO authenticated;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO anon;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO authenticated;
+
+-- 刷新 schema
+NOTIFY pgrst, 'reload schema';</div>
+    </div>
+
+    <div class="section">
+        <h3>📝 操作日誌</h3>
+        <div id="log" class="log">準備開始檢查...\n</div>
+        <button onclick="clearLog()">清除日誌</button>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // 初始化 Supabase
+        let supabase;
+        
+        if (typeof window.LostItemsConfig !== 'undefined') {
+            const config = window.LostItemsConfig.config;
+            supabase = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+        } else {
+            const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : type === 'info' ? 'info' : '';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 必要的欄位列表
+        const requiredColumns = [
+            'id',
+            'original_lost_item_id',
+            'name',
+            'description',
+            'image_url',
+            'image_data',
+            'found_location',
+            'found_time',
+            'story',
+            'finder_name',
+            'claimer_name',
+            'claim_time',
+            'returned_by',
+            'notes',
+            'created_at'
+        ];
+
+        async function checkTableStructure() {
+            log('🔍 檢查 returned_items 表格結構...', 'info');
+            
+            try {
+                // 嘗試查詢表格以檢查是否存在
+                const { data, error } = await supabase
+                    .from('returned_items')
+                    .select('*')
+                    .limit(0);
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        log('❌ returned_items 表不存在', 'error');
+                        showTableStatus('❌ 表格不存在', 'error');
+                        return;
+                    } else {
+                        log(`⚠️ 查詢表格時發生錯誤: ${error.message}`, 'warning');
+                    }
+                }
+
+                log('✅ returned_items 表存在', 'success');
+
+                // 嘗試獲取表格結構（通過嘗試插入空資料來觸發欄位錯誤）
+                const testData = requiredColumns.reduce((obj, col) => {
+                    if (col !== 'id' && col !== 'created_at') {
+                        obj[col] = null;
+                    }
+                    return obj;
+                }, {});
+
+                const { error: insertError } = await supabase
+                    .from('returned_items')
+                    .insert([testData]);
+
+                if (insertError) {
+                    const missingColumns = [];
+                    const errorMessage = insertError.message;
+                    
+                    // 分析錯誤訊息找出缺失的欄位
+                    requiredColumns.forEach(col => {
+                        if (errorMessage.includes(`'${col}'`) && errorMessage.includes('not found')) {
+                            missingColumns.push(col);
+                        }
+                    });
+
+                    if (missingColumns.length > 0) {
+                        log(`❌ 缺少以下欄位: ${missingColumns.join(', ')}`, 'error');
+                        showTableStatus(missingColumns, 'partial');
+                    } else {
+                        log('⚠️ 插入測試失敗，但不是因為缺少欄位', 'warning');
+                        log(`錯誤訊息: ${errorMessage}`, 'info');
+                        showTableStatus('✅ 所有欄位都存在', 'success');
+                    }
+                } else {
+                    log('✅ 所有必要欄位都存在', 'success');
+                    showTableStatus('✅ 表格結構完整', 'success');
+                }
+
+            } catch (err) {
+                log(`❌ 檢查過程發生錯誤: ${err.message}`, 'error');
+                showTableStatus('❌ 檢查失敗', 'error');
+            }
+        }
+
+        function showTableStatus(status, type) {
+            const container = document.getElementById('tableStructure');
+            
+            if (Array.isArray(status)) {
+                // 顯示缺失欄位列表
+                const tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>欄位名稱</th>
+                                <th>狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${requiredColumns.map(col => {
+                                const missing = status.includes(col);
+                                return `
+                                    <tr class="${missing ? 'missing' : 'exists'}">
+                                        <td>${col}</td>
+                                        <td>${missing ? '❌ 缺失' : '✅ 存在'}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+                container.innerHTML = tableHTML;
+            } else {
+                container.innerHTML = `<div class="section ${type}"><h4>${status}</h4></div>`;
+            }
+        }
+
+        async function executeFixSQL() {
+            log('🛠️ 開始執行修復 SQL...', 'info');
+            
+            try {
+                // 執行多個 SQL 語句來修復表格
+                const sqlStatements = [
+                    // 1. 確保表格存在
+                    `CREATE TABLE IF NOT EXISTS returned_items (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    )`,
+                    
+                    // 2. 添加缺失的欄位（使用 IF NOT EXISTS）
+                    `ALTER TABLE returned_items 
+                     ADD COLUMN IF NOT EXISTS original_lost_item_id INTEGER,
+                     ADD COLUMN IF NOT EXISTS description TEXT,
+                     ADD COLUMN IF NOT EXISTS image_url TEXT,
+                     ADD COLUMN IF NOT EXISTS image_data TEXT,
+                     ADD COLUMN IF NOT EXISTS found_location VARCHAR(50),
+                     ADD COLUMN IF NOT EXISTS found_time TIMESTAMP WITH TIME ZONE,
+                     ADD COLUMN IF NOT EXISTS story TEXT,
+                     ADD COLUMN IF NOT EXISTS finder_name VARCHAR(50),
+                     ADD COLUMN IF NOT EXISTS claimer_name VARCHAR(50),
+                     ADD COLUMN IF NOT EXISTS claim_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                     ADD COLUMN IF NOT EXISTS returned_by VARCHAR(50),
+                     ADD COLUMN IF NOT EXISTS notes TEXT`
+                ];
+
+                for (const sql of sqlStatements) {
+                    const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+                    if (error) {
+                        log(`⚠️ SQL 執行警告: ${error.message}`, 'warning');
+                    } else {
+                        log('✅ SQL 語句執行成功', 'success');
+                    }
+                }
+
+                log('🎉 表格修復完成！', 'success');
+                
+                // 重新檢查結構
+                setTimeout(checkTableStructure, 1000);
+
+            } catch (err) {
+                log(`❌ 修復過程發生錯誤: ${err.message}`, 'error');
+                log('💡 請手動執行 SQL 語句', 'info');
+            }
+        }
+
+        async function testInsertion() {
+            log('🧪 測試插入 returned_items 資料...', 'info');
+            
+            try {
+                const testData = {
+                    original_lost_item_id: 999,
+                    name: '測試失物',
+                    description: '測試描述',
+                    found_location: '測試地點',
+                    story: '測試故事',
+                    finder_name: '測試拾得者',
+                    claimer_name: '測試認領者',
+                    claim_time: new Date().toISOString()
+                };
+
+                const { data, error } = await supabase
+                    .from('returned_items')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    log(`❌ 插入測試失敗: ${error.message}`, 'error');
+                    if (error.message.includes('schema cache')) {
+                        log('💡 建議刷新 Supabase Dashboard 或等待幾分鐘', 'info');
+                    }
+                } else {
+                    log('✅ 插入測試成功！', 'success');
+                    log(`插入的記錄 ID: ${data[0].id}`, 'info');
+                    
+                    // 清理測試資料
+                    await supabase
+                        .from('returned_items')
+                        .delete()
+                        .eq('id', data[0].id);
+                    log('🗑️ 已清理測試資料', 'info');
+                }
+
+            } catch (err) {
+                log(`❌ 測試過程發生錯誤: ${err.message}`, 'error');
+            }
+        }
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', function() {
+            log('🔧 returned_items 表格修復工具已載入', 'info');
+            setTimeout(checkTableStructure, 500);
+        });
+    </script>
+</body>
+</html>

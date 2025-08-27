@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>凱旋失物故事牆</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- 主要互動牆界面 -->
+    <div class="main-container">
+        <!-- 標題區域 -->
+        <header class="header">
+            <div class="title-container">
+                <!-- 可愛的失物圖示 -->
+                <svg class="logo-icon" viewBox="0 0 100 100" width="60" height="60">
+                    <circle cx="50" cy="50" r="45" fill="#FF6B6B" stroke="#fff" stroke-width="4"/>
+                    <circle cx="38" cy="42" r="6" fill="#fff"/>
+                    <circle cx="62" cy="42" r="6" fill="#fff"/>
+                    <path d="M35 65 Q50 75 65 65" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+                </svg>
+                <h1 class="main-title">凱旋失物故事牆</h1>
+                <p class="subtitle">每個失物都有自己的故事 📸</p>
+            </div>
+        </header>
+
+        <!-- 右上角功能按鈕 -->
+        <div class="top-right-actions">
+            <button class="action-btn-small upload-btn" onclick="showUploadModal()" title="拍照上傳遺失物">
+                <svg class="btn-icon-small" viewBox="0 0 24 24" width="18" height="18">
+                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L8.5,10L11,12.5L15.5,8L17.5,10L11,16.5Z" fill="currentColor"/>
+                </svg>
+                <span class="btn-label">上傳失物</span>
+            </button>
+            
+            <button class="action-btn-small admin-btn" onclick="showAdminLogin()" title="管理員登入">
+                <svg class="btn-icon-small" viewBox="0 0 24 24" width="18" height="18">
+                    <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" fill="currentColor"/>
+                </svg>
+                <span class="btn-label">管理員</span>
+            </button>
+        </div>
+
+        <!-- 失物展示區域 -->
+        <main class="content-area">
+            <!-- 載入中提示 -->
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="loading-spinner"></div>
+                <p>正在載入失物資料...</p>
+            </div>
+            
+            <!-- 無失物提示 -->
+            <div class="no-items-message" id="noItemsMessage" style="display: none;">
+                <div class="empty-state">
+                    <svg viewBox="0 0 100 100" width="80" height="80" class="empty-icon">
+                        <circle cx="50" cy="50" r="45" fill="#f0f0f0" stroke="#ddd" stroke-width="2"/>
+                        <circle cx="40" cy="45" r="4" fill="#999"/>
+                        <circle cx="60" cy="45" r="4" fill="#999"/>
+                        <path d="M40 60 Q50 55 60 60" stroke="#999" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    </svg>
+                    <h3>目前沒有失物</h3>
+                    <p>快來上傳第一個失物吧！</p>
+                    <button onclick="showUploadModal()" class="primary-btn">
+                        📸 上傳失物
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 失物展示網格 -->
+            <div class="lost-items-grid" id="lostItemsGrid">
+                <!-- 失物卡片會從資料庫動態載入 -->
+            </div>
+        </main>
+
+        <!-- 故事播放區域 -->
+        <div class="story-modal" id="storyModal">
+            <div class="story-content">
+                <button class="close-btn" onclick="closeStory()">✕</button>
+                <div class="story-image-container">
+                    <img id="storyImage" src="" alt="" class="story-image">
+                    <div class="speaking-animation" id="speakingAnimation">
+                        <div class="wave wave1"></div>
+                        <div class="wave wave2"></div>
+                        <div class="wave wave3"></div>
+                    </div>
+                </div>
+                <div class="story-text-container">
+                    <h2 id="storyTitle">失物的故事</h2>
+                    <p id="storyText" class="story-text">載入中...</p>
+                    <div class="story-controls">
+                        <button class="play-story-btn" id="playStoryBtn" onclick="toggleStoryAudio()">
+                            <svg class="play-icon" viewBox="0 0 24 24" width="20" height="20">
+                                <path d="M8 5v14l11-7z" fill="#fff"/>
+                            </svg>
+                            聽我說話
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 隱藏的管理員入口 -->
+        <div class="admin-trigger" onclick="showAdminLogin()"></div>
+        
+        <!-- 拍照上傳彈窗 -->
+        <div class="upload-modal" id="uploadModal">
+            <div class="upload-modal-content">
+                <div class="upload-header">
+                    <h3>📸 上傳遺失物</h3>
+                    <button class="close-btn" onclick="hideUploadModal()">✕</button>
+                </div>
+                
+                <div class="upload-form">
+                    <!-- 拍照區域 -->
+                    <div class="photo-section">
+                        <div class="camera-container" id="uploadCameraContainer">
+                            <video id="uploadCameraVideo" autoplay muted style="display: none;"></video>
+                            <canvas id="uploadPhotoCanvas" style="display: none;"></canvas>
+                            <div class="camera-placeholder" id="cameraPlaceholder">
+                                <svg viewBox="0 0 24 24" width="64" height="64" class="camera-icon">
+                                    <path d="M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" fill="#ccc"/>
+                                </svg>
+                                <p>點擊下方按鈕開始拍照</p>
+                            </div>
+                        </div>
+                        
+                        <div class="camera-controls">
+                            <button id="startUploadCameraBtn" class="camera-control-btn primary">
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <path d="M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" fill="currentColor"/>
+                                </svg>
+                                開啟相機
+                            </button>
+                            <button id="captureUploadBtn" class="camera-control-btn primary" style="display: none;">
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="12" cy="12" r="6" fill="currentColor"/>
+                                </svg>
+                                拍照
+                            </button>
+                            <input type="file" id="uploadFileInput" accept="image/*" style="display: none;">
+                            <button id="selectFileBtn" class="camera-control-btn secondary">
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+                                </svg>
+                                選擇檔案
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 資訊填寫區域 -->
+                    <div class="info-section">
+                        <div class="form-group">
+                            <label for="uploadItemName">失物名稱 *</label>
+                            <input type="text" id="uploadItemName" placeholder="例如：紅色水壺、藍色鉛筆盒" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="uploadFoundLocation">發現地點 *</label>
+                            <select id="uploadFoundLocation" required onchange="handleLocationChange(this)">
+                                <option value="">請選擇地點</option>
+                                <option value="操場">操場</option>
+                                <option value="圖書館">圖書館</option>
+                                <option value="川堂">川堂</option>
+                                <option value="教室">教室</option>
+                                <option value="校外">校外</option>
+                                <option value="走廊">走廊</option>
+                                <option value="廁所">廁所</option>
+                                <option value="其他">其他</option>
+                            </select>
+                            <input type="text" id="customLocationInput" placeholder="請輸入其他地點" style="display: none; margin-top: 0.5rem;" class="form-group input">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="uploadDescription">物品描述</label>
+                            <textarea id="uploadDescription" placeholder="描述失物的特徵、顏色、大小等（可選）" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="uploadFinderName">拾得者</label>
+                            <input type="text" id="uploadFinderName" placeholder="拾得者姓名（可選）">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="upload-actions">
+                    <button id="generateUploadStoryBtn" class="upload-action-btn primary">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M10,12A1.5,1.5 0 0,1 8.5,10.5A1.5,1.5 0 0,1 10,9A1.5,1.5 0 0,1 11.5,10.5A1.5,1.5 0 0,1 10,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20Z" fill="currentColor"/>
+                        </svg>
+                        生成故事並儲存
+                    </button>
+                    <button onclick="hideUploadModal()" class="upload-action-btn secondary">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理員登入彈窗 -->
+        <div class="admin-login-modal" id="adminLoginModal">
+            <div class="admin-login-content">
+                <h3>管理員登入</h3>
+                <input type="password" id="adminPassword" placeholder="請輸入管理密碼" class="admin-input">
+                <div class="admin-login-buttons">
+                    <button onclick="adminLogin()" class="admin-btn primary">登入</button>
+                    <button onclick="hideAdminLogin()" class="admin-btn secondary">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 找到主人 - 輸入姓名彈窗 -->
+        <div class="owner-input-modal" id="ownerInputModal">
+            <div class="owner-input-content">
+                <div class="owner-input-header">
+                    <h3>🎉 找到主人了！</h3>
+                    <button class="close-btn" onclick="hideOwnerInputModal()">✕</button>
+                </div>
+                <div class="owner-input-body">
+                    <div class="found-item-preview" id="foundItemPreview">
+                        <!-- 物品預覽將動態插入 -->
+                    </div>
+                    <div class="owner-name-section">
+                        <label for="ownerNameInput">請輸入物品主人姓名：</label>
+                        <input type="text" id="ownerNameInput" placeholder="例如：王小明" maxlength="50" onkeypress="if(event.key==='Enter') confirmOwnerName()">
+                        <div class="input-hint">請確認物品主人的正確姓名</div>
+                    </div>
+                </div>
+                <div class="owner-input-actions">
+                    <button onclick="confirmOwnerName()" class="owner-btn primary" id="confirmOwnerBtn">
+                        ✅ 確認姓名
+                    </button>
+                    <button onclick="hideOwnerInputModal()" class="owner-btn secondary">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 找到主人 - 確認彈窗 -->
+        <div class="owner-confirm-modal" id="ownerConfirmModal">
+            <div class="owner-confirm-content">
+                <div class="owner-confirm-header">
+                    <h3>🔍 請確認資訊</h3>
+                </div>
+                <div class="owner-confirm-body">
+                    <div class="confirm-info" id="confirmInfo">
+                        <!-- 確認資訊將動態插入 -->
+                    </div>
+                    <div class="confirm-warning">
+                        <p>⚠️ 確認後，此失物將從故事牆移除並標記為已歸還</p>
+                    </div>
+                </div>
+                <div class="owner-confirm-actions">
+                    <button onclick="finalizeOwnerFound()" class="owner-btn primary confirm" id="finalConfirmBtn">
+                        🎉 確認歸還
+                    </button>
+                    <button onclick="hideOwnerConfirmModal()" class="owner-btn secondary">重新輸入</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部提示 -->
+        <footer class="footer">
+            <p class="hint-text">點擊失物照片，聽聽它們的故事 🎵</p>
+            
+            <!-- 創用 CC 授權標示 -->
+            <div class="license-notice">
+                <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" title="本作品採用創用 CC 姓名標示-非商業性-禁止改作 4.0 國際 授權條款授權">
+                    <img src="c8.png" alt="Creative Commons License" class="cc-license-image">
+                    <span class="license-text">©2025 Eddie Chen (ezai.today)</span>
+                </a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

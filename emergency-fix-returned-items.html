@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>緊急修復 returned_items 表</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 2rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .warning { border-left: 4px solid #FF9800; }
+        .info { border-left: 4px solid #2196F3; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        button.danger { background: #F44336; }
+        button.danger:hover { background: #d32f2f; }
+        
+        .sql-code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .log {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .log .success { color: #4CAF50; }
+        .log .error { color: #F44336; }
+        .log .warning { color: #FF9800; }
+        .log .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🚨 緊急修復 returned_items 表</h1>
+    
+    <div class="section error">
+        <h3>⚠️ 緊急狀況</h3>
+        <p>由於 <code>returned_items</code> 表結構問題導致「找到主人」功能無法正常運作。</p>
+        <p><strong>建議立即執行修復！</strong></p>
+        
+        <button onclick="emergencyFix()" class="danger">🚨 立即修復</button>
+        <button onclick="testCurrentTable()">🔍 檢查現狀</button>
+        <button onclick="testInsertion()">🧪 測試插入</button>
+    </div>
+
+    <div class="section info">
+        <h3>🛠️ 修復方案</h3>
+        <p>此工具將會：</p>
+        <ol>
+            <li>重新創建 <code>returned_items</code> 表（簡化版本）</li>
+            <li>只包含必要的欄位</li>
+            <li>禁用 RLS 確保正常運作</li>
+            <li>設置適當的權限</li>
+            <li>測試插入功能</li>
+        </ol>
+        
+        <div class="warning">
+            <h4>⚠️ 注意事項</h4>
+            <p>此操作會重新創建表格，如果已有歸還記錄將會被清除。</p>
+            <p>建議在測試環境中先執行。</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📋 手動執行 SQL</h3>
+        <p>如果自動修復失敗，請在 Supabase SQL Editor 中手動執行以下 SQL：</p>
+        
+        <div class="sql-code">-- 重新創建 returned_items 表
+DROP TABLE IF EXISTS returned_items;
+
+CREATE TABLE returned_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    found_location VARCHAR(50) NOT NULL,
+    claimer_name VARCHAR(50) NOT NULL,
+    description TEXT,
+    story TEXT,
+    finder_name VARCHAR(50),
+    found_time TIMESTAMP WITH TIME ZONE,
+    image_url TEXT,
+    image_data TEXT,
+    original_lost_item_id INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 禁用 RLS
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 設置權限
+GRANT ALL ON returned_items TO anon;
+GRANT ALL ON returned_items TO authenticated;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO anon;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO authenticated;
+
+-- 刷新 schema
+NOTIFY pgrst, 'reload schema';</div>
+        
+        <button onclick="copySQL()">📋 複製 SQL</button>
+    </div>
+
+    <div class="section">
+        <h3>📝 修復日誌</h3>
+        <div id="log" class="log">準備執行緊急修復...\n</div>
+        <button onclick="clearLog()">清除日誌</button>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // 初始化 Supabase
+        let supabase;
+        
+        if (typeof window.LostItemsConfig !== 'undefined') {
+            const config = window.LostItemsConfig.config;
+            supabase = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+        } else {
+            const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : type === 'info' ? 'info' : '';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function testCurrentTable() {
+            log('🔍 測試當前 returned_items 表狀態...', 'info');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('returned_items')
+                    .select('*')
+                    .limit(1);
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        log('❌ returned_items 表不存在', 'error');
+                    } else {
+                        log(`❌ 查詢錯誤: ${error.message}`, 'error');
+                    }
+                } else {
+                    log('✅ returned_items 表存在並可查詢', 'success');
+                    log(`當前記錄數: ${data.length}`, 'info');
+                }
+            } catch (err) {
+                log(`❌ 測試失敗: ${err.message}`, 'error');
+            }
+        }
+
+        async function emergencyFix() {
+            if (!confirm('⚠️ 確定要重新創建 returned_items 表嗎？\n這會清除現有的歸還記錄！')) {
+                return;
+            }
+            
+            log('🚨 開始緊急修復 returned_items 表...', 'warning');
+            
+            try {
+                // 嘗試刪除現有表格（可能會失敗，但沒關係）
+                log('🗑️ 嘗試刪除現有表格...', 'info');
+                await supabase.rpc('exec_sql', { 
+                    sql_query: 'DROP TABLE IF EXISTS returned_items;' 
+                });
+                
+                // 創建新表格
+                log('🏗️ 創建新的 returned_items 表...', 'info');
+                const createTableSQL = `
+                    CREATE TABLE returned_items (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL,
+                        found_location VARCHAR(50) NOT NULL,
+                        claimer_name VARCHAR(50) NOT NULL,
+                        description TEXT,
+                        story TEXT,
+                        finder_name VARCHAR(50),
+                        found_time TIMESTAMP WITH TIME ZONE,
+                        image_url TEXT,
+                        image_data TEXT,
+                        original_lost_item_id INTEGER,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                `;
+                
+                const { error: createError } = await supabase.rpc('exec_sql', { 
+                    sql_query: createTableSQL 
+                });
+                
+                if (createError) {
+                    log(`❌ 創建表格失敗: ${createError.message}`, 'error');
+                    return;
+                }
+                
+                log('✅ 表格創建成功', 'success');
+                
+                // 禁用 RLS
+                log('🔓 禁用 RLS...', 'info');
+                await supabase.rpc('exec_sql', { 
+                    sql_query: 'ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;' 
+                });
+                
+                // 設置權限
+                log('🔑 設置權限...', 'info');
+                const permissionSQL = `
+                    GRANT ALL ON returned_items TO anon;
+                    GRANT ALL ON returned_items TO authenticated;
+                    GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO anon;
+                    GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO authenticated;
+                `;
+                
+                await supabase.rpc('exec_sql', { 
+                    sql_query: permissionSQL 
+                });
+                
+                // 刷新 schema
+                log('🔄 刷新 schema cache...', 'info');
+                await supabase.rpc('exec_sql', { 
+                    sql_query: "NOTIFY pgrst, 'reload schema';" 
+                });
+                
+                log('🎉 緊急修復完成！', 'success');
+                log('💡 請等待 30 秒後測試插入功能', 'info');
+                
+                // 30 秒後自動測試
+                setTimeout(testInsertion, 30000);
+                
+            } catch (err) {
+                log(`❌ 緊急修復失敗: ${err.message}`, 'error');
+                log('💡 請手動執行 SQL 語句', 'warning');
+            }
+        }
+
+        async function testInsertion() {
+            log('🧪 測試插入功能...', 'info');
+            
+            try {
+                const testData = {
+                    name: '測試失物',
+                    found_location: '測試地點',
+                    claimer_name: '測試主人',
+                    description: '測試描述'
+                };
+
+                const { data, error } = await supabase
+                    .from('returned_items')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    log(`❌ 插入測試失敗: ${error.message}`, 'error');
+                    
+                    if (error.message.includes('schema cache')) {
+                        log('💡 Schema cache 未更新，請稍等再試', 'warning');
+                    }
+                } else {
+                    log('✅ 插入測試成功！', 'success');
+                    log(`插入記錄 ID: ${data[0].id}`, 'info');
+                    
+                    // 清理測試資料
+                    await supabase
+                        .from('returned_items')
+                        .delete()
+                        .eq('id', data[0].id);
+                    
+                    log('🗑️ 測試資料已清理', 'info');
+                    log('🎊 returned_items 表已準備就緒！', 'success');
+                }
+
+            } catch (err) {
+                log(`❌ 測試插入異常: ${err.message}`, 'error');
+            }
+        }
+
+        function copySQL() {
+            const sqlText = `-- 重新創建 returned_items 表
+DROP TABLE IF EXISTS returned_items;
+
+CREATE TABLE returned_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    found_location VARCHAR(50) NOT NULL,
+    claimer_name VARCHAR(50) NOT NULL,
+    description TEXT,
+    story TEXT,
+    finder_name VARCHAR(50),
+    found_time TIMESTAMP WITH TIME ZONE,
+    image_url TEXT,
+    image_data TEXT,
+    original_lost_item_id INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 禁用 RLS
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 設置權限
+GRANT ALL ON returned_items TO anon;
+GRANT ALL ON returned_items TO authenticated;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO anon;
+GRANT USAGE, SELECT ON SEQUENCE returned_items_id_seq TO authenticated;
+
+-- 刷新 schema
+NOTIFY pgrst, 'reload schema';`;
+
+            navigator.clipboard.writeText(sqlText).then(() => {
+                alert('✅ SQL 已複製到剪貼板！');
+                log('📋 SQL 已複製到剪貼板', 'success');
+            }).catch(() => {
+                log('❌ 複製失敗，請手動複製', 'error');
+            });
+        }
+
+        // 頁面載入時檢查狀態
+        window.addEventListener('load', function() {
+            log('🚨 緊急修復工具已載入', 'warning');
+            testCurrentTable();
+        });
+    </script>
+</body>
+</html>

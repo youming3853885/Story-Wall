@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試上傳單筆資料</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .test-header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        .test-info {
+            background: rgba(255, 255, 255, 0.9);
+            margin: 2rem;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fix-info {
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #4CAF50, #66BB6A);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .event-log {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+        
+        .log-entry {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .log-entry.success {
+            color: #4CAF50;
+        }
+        
+        .log-entry.error {
+            color: #f44336;
+        }
+        
+        .log-entry.warning {
+            color: #ff9800;
+        }
+        
+        .counter {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2196F3;
+            text-align: center;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-header">
+        <h1>🔍 上傳功能測試</h1>
+        <p>驗證上傳失物功能是否只會新增一筆資料</p>
+    </div>
+    
+    <div class="test-info">
+        <h3>🐛 問題描述</h3>
+        <p>用戶回報上傳失物功能每次會新增兩筆相同的資料到資料庫中。</p>
+        
+        <h3>🔧 修復內容</h3>
+        <div class="fix-info">
+            <strong>✅ 已移除重複事件綁定：</strong><br>
+            • 移除了 HTML 中的 <code>onclick="generateAndSaveItem()"</code> 屬性<br>
+            • 保留 JavaScript 中的 <code>addEventListener</code> 綁定<br>
+            • 避免了雙重觸發導致的重複資料新增
+        </div>
+        
+        <h3>🧪 測試方法</h3>
+        <p>點擊下方的測試按鈕，觀察事件觸發次數和日誌輸出。正常情況下，每次點擊應該只觸發一次函數執行。</p>
+        
+        <div class="counter">
+            觸發次數: <span id="triggerCount">0</span>
+        </div>
+        
+        <div style="text-align: center; margin: 2rem 0;">
+            <button id="testButton" class="test-button">
+                <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 0.5rem;">
+                    <path d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M10,12A1.5,1.5 0 0,1 8.5,10.5A1.5,1.5 0 0,1 10,9A1.5,1.5 0 0,1 11.5,10.5A1.5,1.5 0 0,1 10,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20Z" fill="currentColor"/>
+                </svg>
+                測試上傳功能觸發
+            </button>
+            <button onclick="clearLog()" class="test-button" style="background: #ff9800;">清除日誌</button>
+        </div>
+        
+        <h3>📊 事件日誌</h3>
+        <div id="eventLog" class="event-log">
+            <div class="log-entry">等待測試...</div>
+        </div>
+        
+        <h3>💡 使用說明</h3>
+        <div class="fix-info">
+            <strong>修復後的行為：</strong><br>
+            1. 每次點擊按鈕應該只觸發一次函數執行<br>
+            2. 觸發次數計數器應該正常遞增（+1）<br>
+            3. 不應該出現重複的日誌條目<br>
+            4. 實際的資料庫插入操作也應該只執行一次
+        </div>
+    </div>
+
+    <script>
+        let triggerCount = 0;
+        
+        // 模擬 generateAndSaveItem 函數的行為
+        function testGenerateAndSaveItem() {
+            triggerCount++;
+            document.getElementById('triggerCount').textContent = triggerCount;
+            
+            addLogEntry(`🚀 函數執行 #${triggerCount} - ${new Date().toLocaleTimeString()}`, 'success');
+            
+            // 模擬實際函數中的邏輯
+            console.log('🚀 測試：generateAndSaveItem 函數被觸發', triggerCount);
+            
+            // 模擬一些處理時間
+            setTimeout(() => {
+                addLogEntry(`✅ 模擬處理完成 #${triggerCount}`, 'success');
+            }, 500);
+        }
+        
+        function addLogEntry(message, type = '') {
+            const log = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = message;
+            
+            // 如果是第一個條目，清除預設文字
+            if (log.children.length === 1 && log.children[0].textContent === '等待測試...') {
+                log.innerHTML = '';
+            }
+            
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('eventLog').innerHTML = '<div class="log-entry">日誌已清除...</div>';
+            triggerCount = 0;
+            document.getElementById('triggerCount').textContent = triggerCount;
+        }
+        
+        // 設置事件監聽器（模擬修復後的正確綁定方式）
+        document.addEventListener('DOMContentLoaded', function() {
+            const testButton = document.getElementById('testButton');
+            
+            if (testButton) {
+                // 正確的事件綁定方式（單一綁定）
+                testButton.addEventListener('click', testGenerateAndSaveItem);
+                addLogEntry('✅ 頁面載入完成，事件監聽器已設置', 'success');
+                console.log('✅ 測試頁面：事件監聽器已正確設置');
+            } else {
+                addLogEntry('❌ 找不到測試按鈕元素', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

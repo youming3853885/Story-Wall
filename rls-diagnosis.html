@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLS 權限診斷</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .result {
+            background: white;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .info { border-left: 4px solid #2196F3; }
+        .warning { border-left: 4px solid #FF9800; }
+        pre { background: #f9f9f9; padding: 1rem; border-radius: 4px; font-size: 0.9rem; overflow-x: auto; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 0.8rem 1.5rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #45a049; }
+        .sql-code {
+            background: #263238;
+            color: #eee;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 RLS 權限與資料診斷</h1>
+    <p>這個工具會診斷為什麼資料庫有資料但API讀取不到的問題</p>
+    
+    <div id="results"></div>
+    
+    <button onclick="runDiagnosis()">執行診斷</button>
+    <button onclick="clearResults()">清除結果</button>
+
+    <script>
+        const supabaseUrl = 'https://oytgyizrtuqyxvxtgrlv.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function log(type, title, content = '') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            let html = `<strong>${title}</strong>`;
+            if (content) {
+                if (typeof content === 'object') {
+                    html += `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+                } else {
+                    html += `<br/>${content}`;
+                }
+            }
+            div.innerHTML = html;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runDiagnosis() {
+            clearResults();
+            
+            log('info', '🔍 開始 RLS 權限診斷...');
+
+            // 測試 1: 基本計數查詢
+            log('info', '測試 1: 基本計數查詢 (count)');
+            try {
+                const { count, error } = await supabase
+                    .from('lost_items')
+                    .select('*', { count: 'exact', head: true });
+
+                if (error) {
+                    log('error', '❌ 計數查詢失敗', error.message);
+                } else {
+                    log('success', `✅ 計數查詢成功: ${count} 筆記錄`);
+                }
+            } catch (err) {
+                log('error', '❌ 計數查詢異常', err.message);
+            }
+
+            // 測試 2: 直接查詢所有資料
+            log('info', '測試 2: 直接查詢所有資料');
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*');
+
+                if (error) {
+                    log('error', '❌ 資料查詢失敗', {
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint,
+                        code: error.code
+                    });
+                } else {
+                    log('success', `✅ 資料查詢成功: 取得 ${data.length} 筆記錄`, 
+                        data.length > 0 ? data : '無資料返回');
+                }
+            } catch (err) {
+                log('error', '❌ 資料查詢異常', err.message);
+            }
+
+            // 測試 3: 限制查詢數量
+            log('info', '測試 3: 限制查詢 (limit 10)');
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .limit(10);
+
+                if (error) {
+                    log('error', '❌ 限制查詢失敗', error.message);
+                } else {
+                    log('success', `✅ 限制查詢成功: 取得 ${data.length} 筆記錄`);
+                }
+            } catch (err) {
+                log('error', '❌ 限制查詢異常', err.message);
+            }
+
+            // 測試 4: 查詢特定欄位
+            log('info', '測試 4: 查詢特定欄位 (id, name)');
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('id, name');
+
+                if (error) {
+                    log('error', '❌ 欄位查詢失敗', error.message);
+                } else {
+                    log('success', `✅ 欄位查詢成功: 取得 ${data.length} 筆記錄`, data);
+                }
+            } catch (err) {
+                log('error', '❌ 欄位查詢異常', err.message);
+            }
+
+            // 測試 5: 嘗試不同的排序
+            log('info', '測試 5: 排序查詢 (order by created_at)');
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    log('error', '❌ 排序查詢失敗', error.message);
+                } else {
+                    log('success', `✅ 排序查詢成功: 取得 ${data.length} 筆記錄`);
+                }
+            } catch (err) {
+                log('error', '❌ 排序查詢異常', err.message);
+            }
+
+            // 測試 6: 檢查 returned_items 表
+            log('info', '測試 6: 檢查 returned_items 表');
+            try {
+                const { data, error } = await supabase
+                    .from('returned_items')
+                    .select('*')
+                    .limit(5);
+
+                if (error) {
+                    log('warning', '⚠️ returned_items 表查詢失敗', error.message);
+                } else {
+                    log('success', `✅ returned_items 表查詢成功: 取得 ${data.length} 筆記錄`);
+                }
+            } catch (err) {
+                log('error', '❌ returned_items 表查詢異常', err.message);
+            }
+
+            // 顯示解決方案
+            log('info', '💡 可能的解決方案');
+            
+            const solutions = `
+如果上述查詢都返回 0 筆資料，但您確定資料庫中有資料，問題可能是：
+
+1. RLS (Row Level Security) 政策問題
+2. API Key 權限不足  
+3. 表格權限設定問題
+
+請在 Supabase 後台執行以下 SQL 來解決：
+            `;
+            
+            log('warning', '⚠️ 診斷結果', solutions);
+
+            // 顯示修復 SQL
+            const fixSQL = `-- 1. 檢查並禁用 RLS (如果不需要安全控制)
+ALTER TABLE lost_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE returned_items DISABLE ROW LEVEL SECURITY;
+
+-- 2. 或者創建允許所有操作的 RLS 政策
+DROP POLICY IF EXISTS "Enable read access for all users" ON lost_items;
+CREATE POLICY "Enable read access for all users" ON lost_items FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable insert for all users" ON lost_items;
+CREATE POLICY "Enable insert for all users" ON lost_items FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable update for all users" ON lost_items;  
+CREATE POLICY "Enable update for all users" ON lost_items FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Enable delete for all users" ON lost_items;
+CREATE POLICY "Enable delete for all users" ON lost_items FOR DELETE USING (true);
+
+-- 3. 同樣設定 returned_items 表
+DROP POLICY IF EXISTS "Enable read access for all users" ON returned_items;
+CREATE POLICY "Enable read access for all users" ON returned_items FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable insert for all users" ON returned_items;
+CREATE POLICY "Enable insert for all users" ON returned_items FOR INSERT WITH CHECK (true);`;
+
+            const sqlDiv = document.createElement('div');
+            sqlDiv.className = 'sql-code';
+            sqlDiv.textContent = fixSQL;
+            
+            const fixDiv = document.createElement('div');
+            fixDiv.className = 'result warning';
+            fixDiv.innerHTML = '<strong>🔧 修復 SQL (請在 Supabase SQL Editor 中執行)</strong>';
+            fixDiv.appendChild(sqlDiv);
+            
+            document.getElementById('results').appendChild(fixDiv);
+
+            log('info', '✅ 診斷完成！請執行上述 SQL 後重新測試');
+        }
+
+        // 頁面載入時自動執行
+        window.addEventListener('load', function() {
+            setTimeout(runDiagnosis, 500);
+        });
+    </script>
+</body>
+</html>

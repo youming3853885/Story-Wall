@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理系統資料庫連接測試</title>
+    <link rel="stylesheet" href="admin-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .test-header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        .test-info {
+            background: rgba(255, 255, 255, 0.9);
+            margin: 2rem;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-box {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .status-box.success {
+            background: #e8f5e8;
+            border-color: #4CAF50;
+        }
+        
+        .status-box.error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+        
+        .status-box.warning {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #4CAF50, #66BB6A);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .test-button.secondary {
+            background: linear-gradient(135deg, #2196F3, #42A5F5);
+        }
+        
+        .test-results {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .data-table img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-header">
+        <h1>🔍 管理系統資料庫連接測試</h1>
+        <p>驗證管理失物功能是否正確連接到資料庫</p>
+    </div>
+    
+    <div class="test-info">
+        <h3>🎯 測試目標</h3>
+        <p>確認管理系統能夠正確從 <code>lost_items</code> 資料庫表載入真實資料，而非使用虛假的示範資料。</p>
+        
+        <h3>📊 連接狀態</h3>
+        <div id="connectionStatus" class="status-box">
+            <strong>⏳ 正在檢查連接...</strong>
+        </div>
+        
+        <h3>🧪 測試功能</h3>
+        <div style="text-align: center; margin: 2rem 0;">
+            <button onclick="reloadConfig()" class="test-button" style="background: linear-gradient(135deg, #ff9800, #ffb74d);">
+                🔄 重新載入配置
+            </button>
+            <button onclick="testDatabaseConnection()" class="test-button">
+                🔗 測試資料庫連接
+            </button>
+            <button onclick="loadRealData()" class="test-button secondary">
+                📊 載入真實失物資料
+            </button>
+            <button onclick="testStatistics()" class="test-button secondary">
+                📈 測試統計功能
+            </button>
+        </div>
+        
+        <h3>📋 測試結果</h3>
+        <div id="testResults" class="test-results">
+            等待測試...
+        </div>
+        
+        <h3>📊 資料庫內容</h3>
+        <div id="dataContainer">
+            <p>點擊 "載入真實失物資料" 查看資料庫內容</p>
+        </div>
+        
+        <h3>💡 預期行為</h3>
+        <div class="status-box">
+            <strong>✅ 正確行為：</strong><br>
+            • 管理系統應該從 Supabase <code>lost_items</code> 表載入資料<br>
+            • 顯示的失物應該與用戶上傳的真實資料一致<br>
+            • 統計數字應該反映資料庫中的實際記錄數量<br>
+            • 不應該顯示任何硬編碼的示範資料
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        let supabase;
+        
+        // 初始化 Supabase
+        function initializeSupabase() {
+            try {
+                // 詳細診斷配置載入狀況
+                addTestResult('🔍 開始診斷配置載入狀況...');
+                addTestResult(`   • window.supabase 存在: ${typeof window.supabase !== 'undefined'}`);
+                addTestResult(`   • window.LostItemsConfig 存在: ${typeof window.LostItemsConfig !== 'undefined'}`);
+                
+                if (typeof window.LostItemsConfig !== 'undefined') {
+                    addTestResult(`   • config 對象存在: ${typeof window.LostItemsConfig.config !== 'undefined'}`);
+                    if (window.LostItemsConfig.config) {
+                        addTestResult(`   • supabase URL: ${window.LostItemsConfig.config.supabase?.url || '未設定'}`);
+                        addTestResult(`   • supabase Key 長度: ${window.LostItemsConfig.config.supabase?.anonKey?.length || 0} 字符`);
+                    }
+                }
+                
+                if (typeof window.supabase === 'undefined') {
+                    addTestResult('❌ Supabase CDN 未載入', 'error');
+                    return false;
+                }
+                
+                if (typeof window.LostItemsConfig !== 'undefined' && window.LostItemsConfig.config) {
+                    const config = window.LostItemsConfig.config;
+                    supabase = window.supabase.createClient(config.supabase.url, config.supabase.anonKey);
+                    addTestResult('✅ Supabase 客戶端已初始化', 'success');
+                    return true;
+                } else {
+                    addTestResult('❌ 配置文件未正確載入或結構錯誤', 'error');
+                    
+                    // 使用備用配置
+                    addTestResult('🔄 嘗試使用備用配置...', 'warning');
+                    const fallbackConfig = {
+                        supabase: {
+                            url: 'https://oytgyizrtuqyxvxtgrlv.supabase.co',
+                            anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs'
+                        }
+                    };
+                    
+                    supabase = window.supabase.createClient(fallbackConfig.supabase.url, fallbackConfig.supabase.anonKey);
+                    addTestResult('✅ 使用備用配置初始化成功', 'success');
+                    return true;
+                }
+            } catch (error) {
+                addTestResult(`❌ 初始化失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        // 測試資料庫連接
+        async function testDatabaseConnection() {
+            addTestResult('🔄 開始測試資料庫連接...');
+            
+            if (!supabase) {
+                addTestResult('❌ Supabase 客戶端未初始化', 'error');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('count(*)', { count: 'exact', head: true });
+                
+                if (error) {
+                    addTestResult(`❌ 資料庫連接失敗: ${error.message}`, 'error');
+                    updateConnectionStatus('error', '資料庫連接失敗');
+                } else {
+                    addTestResult('✅ 資料庫連接成功', 'success');
+                    updateConnectionStatus('success', '資料庫連接正常');
+                }
+            } catch (err) {
+                addTestResult(`❌ 連接測試發生錯誤: ${err.message}`, 'error');
+                updateConnectionStatus('error', '連接測試失敗');
+            }
+        }
+        
+        // 載入真實資料
+        async function loadRealData() {
+            addTestResult('🔄 開始載入失物資料...');
+            
+            if (!supabase) {
+                addTestResult('❌ Supabase 客戶端未初始化', 'error');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('lost_items')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    addTestResult(`❌ 載入失物資料失敗: ${error.message}`, 'error');
+                    return;
+                }
+                
+                addTestResult(`✅ 成功載入 ${data.length} 筆失物資料`, 'success');
+                
+                if (data.length === 0) {
+                    document.getElementById('dataContainer').innerHTML = `
+                        <div class="status-box warning">
+                            <strong>⚠️ 資料庫為空</strong><br>
+                            目前 lost_items 表中沒有資料。請先使用首頁的上傳功能新增一些失物。
+                        </div>
+                    `;
+                } else {
+                    displayData(data);
+                }
+                
+            } catch (err) {
+                addTestResult(`❌ 載入資料時發生錯誤: ${err.message}`, 'error');
+            }
+        }
+        
+        // 測試統計功能
+        async function testStatistics() {
+            addTestResult('🔄 開始測試統計功能...');
+            
+            if (!supabase) {
+                addTestResult('❌ Supabase 客戶端未初始化', 'error');
+                return;
+            }
+            
+            try {
+                // 測試 lost_items 統計
+                const { data: lostItems, error: lostError } = await supabase
+                    .from('lost_items')
+                    .select('*');
+                
+                if (lostError) {
+                    addTestResult(`❌ 統計 lost_items 失敗: ${lostError.message}`, 'error');
+                    return;
+                }
+                
+                // 測試 returned_items 統計
+                const { data: returnedItems, error: returnedError } = await supabase
+                    .from('returned_items')
+                    .select('*');
+                
+                if (returnedError) {
+                    addTestResult(`⚠️ 統計 returned_items 失敗: ${returnedError.message}`, 'warning');
+                }
+                
+                const lostCount = lostItems ? lostItems.length : 0;
+                const returnedCount = returnedItems ? returnedItems.length : 0;
+                
+                addTestResult(`✅ 統計結果:`, 'success');
+                addTestResult(`   • 目前展示失物: ${lostCount} 件`);
+                addTestResult(`   • 已歸還失物: ${returnedCount} 件`);
+                addTestResult(`   • 總計處理: ${lostCount + returnedCount} 件`);
+                
+            } catch (err) {
+                addTestResult(`❌ 統計測試發生錯誤: ${err.message}`, 'error');
+            }
+        }
+        
+        // 顯示資料
+        function displayData(data) {
+            const container = document.getElementById('dataContainer');
+            
+            let html = `
+                <h4>📊 資料庫內容 (${data.length} 筆記錄)</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>圖片</th>
+                            <th>失物名稱</th>
+                            <th>發現地點</th>
+                            <th>發現時間</th>
+                            <th>資料來源</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.forEach(item => {
+                const imageSource = item.image_url || item.image_data || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"%3E%3Crect width="60" height="60" fill="%23F0F0F0"/%3E%3Ctext x="30" y="35" text-anchor="middle" font-family="Arial" font-size="10" fill="%23999"%3E無圖%3C/text%3E%3C/svg%3E';
+                const timeString = formatTime(item.found_time || item.created_at);
+                const dataSource = item.image_url ? '✅ Supabase Storage' : '📁 Base64 資料';
+                
+                html += `
+                    <tr>
+                        <td><img src="${imageSource}" alt="${item.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 60 60&quot;%3E%3Crect width=&quot;60&quot; height=&quot;60&quot; fill=&quot;%23F0F0F0&quot;/%3E%3Ctext x=&quot;30&quot; y=&quot;35&quot; text-anchor=&quot;middle&quot; font-family=&quot;Arial&quot; font-size=&quot;10&quot; fill=&quot;%23999&quot;%3E載入失敗%3C/text%3E%3C/svg%3E'"></td>
+                        <td><strong>${item.name}</strong></td>
+                        <td>📍 ${item.found_location}</td>
+                        <td>${timeString}</td>
+                        <td>${dataSource}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // 格式化時間
+        function formatTime(timeString) {
+            if (!timeString) return '未知';
+            
+            const date = new Date(timeString);
+            const now = new Date();
+            const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return '今天';
+            if (diffDays === 1) return '昨天';
+            if (diffDays === 2) return '前天';
+            if (diffDays <= 7) return `${diffDays}天前`;
+            return `${Math.floor(diffDays / 7)}週前`;
+        }
+        
+        // 添加測試結果
+        function addTestResult(message, type = '') {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.style.marginBottom = '0.5rem';
+            entry.style.color = type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#333';
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            // 如果是第一個條目，清除預設文字
+            if (results.textContent === '等待測試...') {
+                results.innerHTML = '';
+            }
+            
+            results.appendChild(entry);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        // 更新連接狀態
+        function updateConnectionStatus(type, message) {
+            const status = document.getElementById('connectionStatus');
+            status.className = `status-box ${type}`;
+            status.innerHTML = `<strong>${type === 'success' ? '✅' : '❌'} ${message}</strong>`;
+        }
+        
+        // 重新載入配置
+        function reloadConfig() {
+            addTestResult('🔄 重新載入配置文件...');
+            
+            // 清除現有配置
+            if (window.LostItemsConfig) {
+                delete window.LostItemsConfig;
+                addTestResult('🗑️ 已清除舊配置');
+            }
+            
+            // 動態重新載入配置文件
+            const script = document.createElement('script');
+            script.src = 'config.js?t=' + Date.now(); // 添加時間戳避免快取
+            script.onload = function() {
+                addTestResult('✅ 配置文件重新載入完成', 'success');
+                
+                // 重新初始化
+                if (initializeSupabase()) {
+                    updateConnectionStatus('success', '配置重新載入並初始化成功');
+                } else {
+                    updateConnectionStatus('error', '配置重新載入後初始化失敗');
+                }
+            };
+            script.onerror = function() {
+                addTestResult('❌ 配置文件重新載入失敗', 'error');
+                updateConnectionStatus('error', '配置文件載入失敗');
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        // 頁面載入初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            addTestResult('📖 頁面載入完成');
+            
+            if (initializeSupabase()) {
+                updateConnectionStatus('success', 'Supabase 已初始化');
+                testDatabaseConnection();
+            } else {
+                updateConnectionStatus('error', 'Supabase 初始化失敗');
+            }
+        });
+    </script>
+</body>
+</html>
