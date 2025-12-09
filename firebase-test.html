@@ -3,15 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>凱旋失物故事牆</title>
+    <title>Firebase 版本測試 - 凱旋失物故事牆</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Firebase CDN -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <style>
+        .test-banner {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+        .firebase-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(66, 133, 244, 0.9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        .firebase-status.connected {
+            background: rgba(52, 168, 83, 0.9);
+        }
+        .firebase-status.error {
+            background: rgba(234, 67, 53, 0.9);
+        }
+    </style>
 </head>
 <body>
+    <!-- Firebase 連接狀態指示器 -->
+    <div class="firebase-status" id="firebaseStatus">
+        🔄 連接中...
+    </div>
+
+    <!-- 測試版本提示 -->
+    <div class="test-banner">
+        🧪 Firebase 測試版本 - 資料已遷移到 Firebase Firestore
+    </div>
+
     <!-- 主要互動牆界面 -->
     <div class="main-container">
         <!-- 標題區域 -->
@@ -19,13 +57,13 @@
             <div class="title-container">
                 <!-- 可愛的失物圖示 -->
                 <svg class="logo-icon" viewBox="0 0 100 100" width="60" height="60">
-                    <circle cx="50" cy="50" r="45" fill="#FF6B6B" stroke="#fff" stroke-width="4"/>
+                    <circle cx="50" cy="50" r="45" fill="#4285f4" stroke="#fff" stroke-width="4"/>
                     <circle cx="38" cy="42" r="6" fill="#fff"/>
                     <circle cx="62" cy="42" r="6" fill="#fff"/>
                     <path d="M35 65 Q50 75 65 65" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
                 </svg>
-                <h1 class="main-title">高雄凱旋國小 - 失物故事牆</h1>
-                <p class="subtitle">每個失物都有自己的故事 📸</p>
+                <h1 class="main-title">高雄凱旋國小 - 失物故事牆 (Firebase版)</h1>
+                <p class="subtitle">每個失物都有自己的故事 📸 (由Firebase驅動)</p>
             </div>
         </header>
 
@@ -44,6 +82,13 @@
                 </svg>
                 <span class="btn-label">管理員</span>
             </button>
+
+            <button class="action-btn-small" onclick="window.open('firebase-migration.html', '_blank')" title="資料遷移工具">
+                <svg class="btn-icon-small" viewBox="0 0 24 24" width="18" height="18">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" fill="currentColor"/>
+                </svg>
+                <span class="btn-label">遷移工具</span>
+            </button>
         </div>
 
         <!-- 失物展示區域 -->
@@ -51,7 +96,7 @@
             <!-- 載入中提示 -->
             <div class="loading-indicator" id="loadingIndicator">
                 <div class="loading-spinner"></div>
-                <p>正在載入失物資料...</p>
+                <p>正在從 Firebase 載入失物資料...</p>
             </div>
             
             <!-- 無失物提示 -->
@@ -64,7 +109,7 @@
                         <path d="M40 60 Q50 55 60 60" stroke="#999" stroke-width="2" fill="none" stroke-linecap="round"/>
                     </svg>
                     <h3>目前沒有失物</h3>
-                    <p>快來上傳第一個失物吧！</p>
+                    <p>快來上傳第一個失物到 Firebase 吧！</p>
                     <button onclick="showUploadModal()" class="primary-btn">
                         📸 上傳失物
                     </button>
@@ -73,7 +118,7 @@
             
             <!-- 失物展示網格 -->
             <div class="lost-items-grid" id="lostItemsGrid">
-                <!-- 失物卡片會從資料庫動態載入 -->
+                <!-- 失物卡片會從 Firebase 動態載入 -->
             </div>
         </main>
 
@@ -111,7 +156,7 @@
         <div class="upload-modal" id="uploadModal">
             <div class="upload-modal-content">
                 <div class="upload-header">
-                    <h3>📸 上傳遺失物</h3>
+                    <h3>📸 上傳遺失物到 Firebase</h3>
                     <button class="close-btn" onclick="hideUploadModal()">✕</button>
                 </div>
                 
@@ -193,7 +238,7 @@
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M10,12A1.5,1.5 0 0,1 8.5,10.5A1.5,1.5 0 0,1 10,9A1.5,1.5 0 0,1 11.5,10.5A1.5,1.5 0 0,1 10,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20Z" fill="currentColor"/>
                         </svg>
-                        生成故事並儲存
+                        生成故事並儲存到 Firebase
                     </button>
                     <button onclick="hideUploadModal()" class="upload-action-btn secondary">取消</button>
                 </div>
@@ -263,19 +308,37 @@
 
         <!-- 底部提示 -->
         <footer class="footer">
-            <p class="hint-text">點擊失物照片，聽聽它們的故事 🎵</p>
+            <p class="hint-text">點擊失物照片，聽聽它們的故事 🎵 (Firebase版本)</p>
             
             <!-- 創用 CC 授權標示 -->
             <div class="license-notice">
                 <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" title="本作品採用創用 CC 姓名標示-非商業性-禁止改作 4.0 國際 授權條款授權">
                     <img src="c8.png" alt="Creative Commons License" class="cc-license-image">
-                    <span class="license-text">©2025 Eddie Chen (ezai.today)</span>
+                    <span class="license-text">©2025 Eddie Chen (ezai.today) - Firebase版</span>
                 </a>
             </div>
         </footer>
     </div>
 
     <script src="config.js"></script>
-    <script src="script.js"></script>
+    <script src="script-firebase.js"></script>
+    
+    <script>
+        // Firebase 連接狀態監控
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusElement = document.getElementById('firebaseStatus');
+            
+            // 監聽 Firebase 初始化狀態
+            setTimeout(() => {
+                if (typeof firebaseApp !== 'undefined' && firebaseApp) {
+                    statusElement.textContent = '✅ Firebase 已連接';
+                    statusElement.className = 'firebase-status connected';
+                } else {
+                    statusElement.textContent = '❌ Firebase 連接失敗';
+                    statusElement.className = 'firebase-status error';
+                }
+            }, 2000);
+        });
+    </script>
 </body>
 </html>

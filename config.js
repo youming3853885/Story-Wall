@@ -4,10 +4,15 @@
 const CONFIG = {
     // 開發環境設定
     development: {
-        // Supabase 配置
-        supabase: {
-            url: 'https://oytgyizrtuqyxvxtgrlv.supabase.co', // 從 API Key 中推測的 URL
-            anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs',
+        // Firebase 配置
+        firebase: {
+            apiKey: "AIzaSyDm1Arp6DTUerSdTKjC4T4ndMRNDog4fuI",
+            authDomain: "story-wall-7af82.firebaseapp.com",
+            projectId: "story-wall-7af82",
+            storageBucket: "story-wall-7af82.firebasestorage.app",
+            messagingSenderId: "308812034466",
+            appId: "1:308812034466:web:afa66ee199a49a5f49c2fb",
+            measurementId: "G-QSEJ431VV0"
         },
         
         // AI 服務配置
@@ -44,9 +49,14 @@ const CONFIG = {
     
     // 生產環境設定
     production: {
-        supabase: {
-            url: (typeof process !== 'undefined' && process.env && process.env.SUPABASE_URL) || 'https://oytgyizrtuqyxvxtgrlv.supabase.co',
-            anonKey: (typeof process !== 'undefined' && process.env && process.env.SUPABASE_ANON_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs',
+        firebase: {
+            apiKey: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_API_KEY) || "AIzaSyDm1Arp6DTUerSdTKjC4T4ndMRNDog4fuI",
+            authDomain: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_AUTH_DOMAIN) || "story-wall-7af82.firebaseapp.com",
+            projectId: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_PROJECT_ID) || "story-wall-7af82",
+            storageBucket: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_STORAGE_BUCKET) || "story-wall-7af82.firebasestorage.app",
+            messagingSenderId: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_MESSAGING_SENDER_ID) || "308812034466",
+            appId: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_APP_ID) || "1:308812034466:web:afa66ee199a49a5f49c2fb",
+            measurementId: (typeof process !== 'undefined' && process.env && process.env.FIREBASE_MEASUREMENT_ID) || "G-QSEJ431VV0"
         },
         
         ai: {

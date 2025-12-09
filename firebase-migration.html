@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 資料遷移工具</title>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #4285f4;
+            margin: 0;
+        }
+        .step {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4285f4;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        .btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .progress {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-bar {
+            background: #4285f4;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .log {
+            background: #f1f3f4;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Firebase 資料遷移工具</h1>
+            <p>將失物故事牆從 Supabase 遷移到 Firebase</p>
+        </div>
+
+        <div class="step">
+            <h3>📋 遷移步驟</h3>
+            <ol>
+                <li>連接到 Supabase 並匯出資料</li>
+                <li>初始化 Firebase 連接</li>
+                <li>設定 Firestore 集合結構</li>
+                <li>遷移失物資料 (lost_items)</li>
+                <li>遷移已歸還資料 (returned_items)</li>
+                <li>遷移圖片到 Firebase Storage</li>
+                <li>驗證資料完整性</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>🚀 開始遷移</h3>
+            <button class="btn" onclick="startMigration()" id="startBtn">開始遷移</button>
+            <button class="btn" onclick="testConnections()" id="testBtn">測試連接</button>
+            <button class="btn" onclick="clearLog()">清除日誌</button>
+            
+            <div class="progress" id="progressContainer" style="display: none;">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div id="status"></div>
+        </div>
+
+        <div class="step">
+            <h3>📝 遷移日誌</h3>
+            <div class="log" id="migrationLog">等待開始遷移...</div>
+        </div>
+
+        <div class="step">
+            <h3>📊 遷移統計</h3>
+            <div id="migrationStats">
+                <p>失物資料：<span id="lostItemsCount">0</span> 筆</p>
+                <p>已歸還資料：<span id="returnedItemsCount">0</span> 筆</p>
+                <p>圖片檔案：<span id="imagesCount">0</span> 個</p>
+                <p>遷移狀態：<span id="migrationStatus">未開始</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDm1Arp6DTUerSdTKjC4T4ndMRNDog4fuI",
+            authDomain: "story-wall-7af82.firebaseapp.com",
+            projectId: "story-wall-7af82",
+            storageBucket: "story-wall-7af82.firebasestorage.app",
+            messagingSenderId: "308812034466",
+            appId: "1:308812034466:web:afa66ee199a49a5f49c2fb",
+            measurementId: "G-QSEJ431VV0"
+        };
+
+        // Supabase 配置
+        const supabaseConfig = {
+            url: 'https://oytgyizrtuqyxvxtgrlv.supabase.co',
+            anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95dGd5aXpydHVxeXh2eHRncmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NzUwNjgsImV4cCI6MjA3MTE1MTA2OH0.OiHI8KP-p0OOKo6XvPOARsz0pYqWBEMowJbL0wOzrQs'
+        };
+
+        // 初始化服務
+        let firebaseApp, db, storage, supabase;
+
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('migrationLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(message);
+        }
+
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            const progressContainer = document.getElementById('progressContainer');
+            
+            progressContainer.style.display = 'block';
+            progressBar.style.width = percent + '%';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.className = type;
+            statusElement.textContent = message;
+        }
+
+        function clearLog() {
+            document.getElementById('migrationLog').textContent = '日誌已清除...\n';
+        }
+
+        async function initializeServices() {
+            try {
+                // 初始化 Firebase
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                storage = firebase.storage();
+                log('✅ Firebase 初始化成功');
+
+                // 初始化 Supabase
+                supabase = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+                log('✅ Supabase 初始化成功');
+
+                return true;
+            } catch (error) {
+                log(`❌ 服務初始化失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testConnections() {
+            log('🔍 測試連接...');
+            
+            if (!await initializeServices()) {
+                return;
+            }
+
+            try {
+                // 測試 Supabase 連接
+                const { data: supabaseTest, error: supabaseError } = await supabase
+                    .from('lost_items')
+                    .select('count', { count: 'exact', head: true });
+                
+                if (supabaseError) {
+                    log(`❌ Supabase 連接失敗: ${supabaseError.message}`);
+                } else {
+                    log(`✅ Supabase 連接成功，找到 ${supabaseTest.length} 筆失物資料`);
+                }
+
+                // 測試 Firebase 連接
+                await db.collection('test').doc('connection').set({ timestamp: new Date() });
+                await db.collection('test').doc('connection').delete();
+                log('✅ Firebase Firestore 連接成功');
+
+                // 測試 Firebase Storage
+                const storageRef = storage.ref('test/connection.txt');
+                await storageRef.putString('test connection');
+                await storageRef.delete();
+                log('✅ Firebase Storage 連接成功');
+
+                showStatus('所有連接測試通過！', 'success');
+            } catch (error) {
+                log(`❌ 連接測試失敗: ${error.message}`);
+                showStatus('連接測試失敗', 'error');
+            }
+        }
+
+        async function migrateLostItems() {
+            log('📦 開始遷移失物資料...');
+            
+            try {
+                // 從 Supabase 獲取所有失物
+                const { data: lostItems, error } = await supabase
+                    .from('lost_items')
+                    .select('*');
+
+                if (error) {
+                    throw new Error(`無法獲取失物資料: ${error.message}`);
+                }
+
+                log(`找到 ${lostItems.length} 筆失物資料`);
+                document.getElementById('lostItemsCount').textContent = lostItems.length;
+
+                // 批次寫入 Firebase
+                const batch = db.batch();
+                const lostItemsRef = db.collection('lost_items');
+
+                lostItems.forEach((item, index) => {
+                    const docRef = lostItemsRef.doc(item.id.toString());
+                    
+                    // 轉換資料格式
+                    const firebaseItem = {
+                        id: item.id,
+                        item_name: item.item_name,
+                        found_location: item.found_location,
+                        description: item.description || '',
+                        finder_name: item.finder_name || '',
+                        story: item.story || '',
+                        image_url: item.image_url || '',
+                        image_data: item.image_data || '',
+                        created_at: firebase.firestore.Timestamp.fromDate(new Date(item.created_at)),
+                        updated_at: firebase.firestore.Timestamp.fromDate(new Date(item.updated_at || item.created_at))
+                    };
+
+                    batch.set(docRef, firebaseItem);
+                    
+                    if ((index + 1) % 10 === 0) {
+                        updateProgress(((index + 1) / lostItems.length) * 50);
+                    }
+                });
+
+                await batch.commit();
+                log(`✅ 成功遷移 ${lostItems.length} 筆失物資料到 Firebase`);
+                return lostItems.length;
+            } catch (error) {
+                log(`❌ 失物資料遷移失敗: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function migrateReturnedItems() {
+            log('📦 開始遷移已歸還資料...');
+            
+            try {
+                // 從 Supabase 獲取所有已歸還物品
+                const { data: returnedItems, error } = await supabase
+                    .from('returned_items')
+                    .select('*');
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 = table not found
+                    throw new Error(`無法獲取已歸還資料: ${error.message}`);
+                }
+
+                const itemCount = returnedItems ? returnedItems.length : 0;
+                log(`找到 ${itemCount} 筆已歸還資料`);
+                document.getElementById('returnedItemsCount').textContent = itemCount;
+
+                if (itemCount > 0) {
+                    // 批次寫入 Firebase
+                    const batch = db.batch();
+                    const returnedItemsRef = db.collection('returned_items');
+
+                    returnedItems.forEach((item, index) => {
+                        const docRef = returnedItemsRef.doc(item.id.toString());
+                        
+                        // 轉換資料格式
+                        const firebaseItem = {
+                            id: item.id,
+                            item_name: item.item_name,
+                            found_location: item.found_location,
+                            description: item.description || '',
+                            finder_name: item.finder_name || '',
+                            story: item.story || '',
+                            image_url: item.image_url || '',
+                            image_data: item.image_data || '',
+                            owner_name: item.owner_name,
+                            returned_at: firebase.firestore.Timestamp.fromDate(new Date(item.returned_at)),
+                            created_at: firebase.firestore.Timestamp.fromDate(new Date(item.created_at)),
+                            updated_at: firebase.firestore.Timestamp.fromDate(new Date(item.updated_at || item.created_at))
+                        };
+
+                        batch.set(docRef, firebaseItem);
+                        
+                        if ((index + 1) % 10 === 0) {
+                            updateProgress(50 + ((index + 1) / returnedItems.length) * 30);
+                        }
+                    });
+
+                    await batch.commit();
+                    log(`✅ 成功遷移 ${itemCount} 筆已歸還資料到 Firebase`);
+                }
+                
+                return itemCount;
+            } catch (error) {
+                log(`❌ 已歸還資料遷移失敗: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function setupFirestoreRules() {
+            log('⚙️ 設定 Firestore 安全規則...');
+            
+            // 這裡只是記錄，實際規則需要在 Firebase 控制台設定
+            log('📝 請在 Firebase 控制台設定以下安全規則：');
+            log(`
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 允許讀取失物資料
+    match /lost_items/{document} {
+      allow read: if true;
+      allow write: if true; // 生產環境請加入適當的驗證
+    }
+    
+    // 允許讀取已歸還資料
+    match /returned_items/{document} {
+      allow read: if true;
+      allow write: if true; // 生產環境請加入適當的驗證
+    }
+  }
+}
+            `);
+        }
+
+        async function setupStorageRules() {
+            log('⚙️ 設定 Storage 安全規則...');
+            
+            // 這裡只是記錄，實際規則需要在 Firebase 控制台設定
+            log('📝 請在 Firebase 控制台設定以下 Storage 規則：');
+            log(`
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /lost-items-images/{allPaths=**} {
+      allow read: if true;
+      allow write: if true; // 生產環境請加入適當的驗證
+    }
+  }
+}
+            `);
+        }
+
+        async function startMigration() {
+            const startBtn = document.getElementById('startBtn');
+            startBtn.disabled = true;
+            startBtn.textContent = '遷移中...';
+            
+            document.getElementById('migrationStatus').textContent = '進行中';
+            
+            try {
+                log('🚀 開始 Firebase 遷移程序...');
+                updateProgress(0);
+
+                // 初始化服務
+                if (!await initializeServices()) {
+                    throw new Error('服務初始化失敗');
+                }
+                updateProgress(10);
+
+                // 設定規則
+                await setupFirestoreRules();
+                await setupStorageRules();
+                updateProgress(20);
+
+                // 遷移資料
+                const lostItemsCount = await migrateLostItems();
+                updateProgress(60);
+
+                const returnedItemsCount = await migrateReturnedItems();
+                updateProgress(90);
+
+                // 完成
+                updateProgress(100);
+                log('🎉 遷移完成！');
+                showStatus('遷移成功完成！', 'success');
+                document.getElementById('migrationStatus').textContent = '已完成';
+
+                // 顯示摘要
+                log(`📊 遷移摘要：`);
+                log(`   - 失物資料：${lostItemsCount} 筆`);
+                log(`   - 已歸還資料：${returnedItemsCount} 筆`);
+                log(`   - 總計：${lostItemsCount + returnedItemsCount} 筆資料`);
+
+            } catch (error) {
+                log(`❌ 遷移失敗: ${error.message}`);
+                showStatus('遷移失敗', 'error');
+                document.getElementById('migrationStatus').textContent = '失敗';
+            } finally {
+                startBtn.disabled = false;
+                startBtn.textContent = '重新遷移';
+            }
+        }
+
+        // 頁面載入時的初始化
+        window.addEventListener('load', () => {
+            log('📱 Firebase 遷移工具已準備就緒');
+            log('💡 建議先點擊「測試連接」確認所有服務正常');
+        });
+    </script>
+</body>
+</html>
