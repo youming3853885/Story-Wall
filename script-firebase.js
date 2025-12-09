@@ -142,6 +142,41 @@ function displayLostItems(items) {
     });
     
     console.log(`✅ 顯示 ${items.length} 個失物卡片`);
+    
+    // 設置找到主人按鈕的事件監聽
+    setupOwnerFoundButtons();
+}
+
+// 設置找到主人按鈕的事件委託
+function setupOwnerFoundButtons() {
+    const grid = document.getElementById('lostItemsGrid');
+    
+    // 移除舊的監聽器（如果有）
+    const oldHandler = grid.ownerFoundHandler;
+    if (oldHandler) {
+        grid.removeEventListener('click', oldHandler);
+    }
+    
+    // 添加新的事件委託
+    const handler = function(e) {
+        const btn = e.target.closest('.found-owner-btn');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const itemId = btn.getAttribute('data-item-id');
+            console.log('🎯 點擊找到主人按鈕，物品ID:', itemId);
+            
+            if (itemId) {
+                showOwnerInputModal(itemId);
+            }
+        }
+    };
+    
+    grid.addEventListener('click', handler);
+    grid.ownerFoundHandler = handler; // 保存引用以便後續移除
+    
+    console.log('✅ 找到主人按鈕事件監聽器已設置');
 }
 
 // 建立失物卡片
@@ -172,7 +207,7 @@ function createLostItemCard(item) {
                     <path d="M8 5v14l11-7z" fill="#fff"/>
                 </svg>
             </div>
-            <button class="found-owner-btn" onclick="showOwnerInputModal('${item.id}'); event.stopPropagation();" title="找到主人">
+            <button class="found-owner-btn" data-item-id="${item.id}" title="找到主人">
                 <svg viewBox="0 0 24 24" width="18" height="18">
                     <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L8.5,10L11,12.5L15.5,8L17.5,10L11,16.5Z" fill="currentColor"/>
                 </svg>
@@ -561,16 +596,35 @@ function resetUploadForm() {
 let currentFoundItemId = null;
 
 function showOwnerInputModal(itemId) {
+    console.log('🎯 開啟找到主人modal，物品ID:', itemId);
     currentFoundItemId = itemId;
     const modal = document.getElementById('ownerInputModal');
+    if (!modal) {
+        console.error('❌ 找不到 ownerInputModal 元素');
+        return;
+    }
     modal.style.display = 'flex';
-    document.getElementById('ownerNameInput').focus();
+    modal.classList.add('active');
+    
+    // 設置焦點
+    setTimeout(() => {
+        const input = document.getElementById('ownerNameInput');
+        if (input) input.focus();
+    }, 100);
 }
 
 function hideOwnerInputModal() {
+    console.log('❌ 關閉找到主人modal');
     const modal = document.getElementById('ownerInputModal');
-    modal.style.display = 'none';
-    document.getElementById('ownerNameInput').value = '';
+    if (!modal) return;
+    
+    modal.classList.remove('active');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300); // 等待動畫完成
+    
+    const input = document.getElementById('ownerNameInput');
+    if (input) input.value = '';
     currentFoundItemId = null;
 }
 
@@ -587,18 +641,33 @@ function confirmOwnerName() {
 }
 
 function showOwnerConfirmModal(ownerName) {
+    console.log('✅ 顯示確認modal，主人:', ownerName);
     const modal = document.getElementById('ownerConfirmModal');
-    modal.style.display = 'flex';
+    if (!modal) {
+        console.error('❌ 找不到 ownerConfirmModal 元素');
+        // 直接執行歸還
+        finalizeOwnerFound(ownerName);
+        return;
+    }
     
-    // 這裡應該顯示確認資訊，簡化處理
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+    
+    // 顯示確認資訊後自動執行
     setTimeout(() => {
         finalizeOwnerFound(ownerName);
     }, 1000);
 }
 
 function hideOwnerConfirmModal() {
+    console.log('❌ 關閉確認modal');
     const modal = document.getElementById('ownerConfirmModal');
-    modal.style.display = 'none';
+    if (!modal) return;
+    
+    modal.classList.remove('active');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300); // 等待動畫完成
 }
 
 async function finalizeOwnerFound(ownerName) {
