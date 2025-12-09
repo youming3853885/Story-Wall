@@ -297,7 +297,7 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-.item-card:hover .found-owner-btn {
+.lost-item-card:hover .found-owner-btn {
     opacity: 1;
     transform: translateY(0);
 }

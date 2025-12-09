@@ -172,8 +172,10 @@ function createLostItemCard(item) {
                     <path d="M8 5v14l11-7z" fill="#fff"/>
                 </svg>
             </div>
-            <button class="found-owner-btn" onclick="showOwnerInputModal('${item.id}'); event.stopPropagation();">
-                🎉 找到主人
+            <button class="found-owner-btn" onclick="showOwnerInputModal('${item.id}'); event.stopPropagation();" title="找到主人">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L8.5,10L11,12.5L15.5,8L17.5,10L11,16.5Z" fill="currentColor"/>
+                </svg>
             </button>
         </div>
         <div class="item-info">
