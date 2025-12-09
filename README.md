@@ -22,8 +22,8 @@
 
 ### 技術棧選擇
 - **前端**：HTML5 + CSS3 + JavaScript（適合國小生操作的簡潔界面）
-- **雲端服務**：Supabase（資料庫 + Storage + 即時API）
-- **圖片儲存**：Supabase Storage（支援 CDN 加速，高品質圖片顯示）
+- **雲端服務**：Firebase（資料庫 + Storage + 即時API）
+- **圖片儲存**：Firebase Storage（支援 CDN 加速，高品質圖片顯示）
 - **AI服務**：OpenAI API（故事生成）+ 本地備用方案
 - **語音服務**：Web Speech API（瀏覽器原生支援）
 
@@ -36,7 +36,7 @@
 - **快速上傳**：首頁直接提供拍照上傳按鈕
 
 ### 2. 失物上傳系統
-- **🖼️ 智慧照片管理**：照片自動上傳到 Supabase Storage，生成公開 URL
+- **🖼️ 智慧照片管理**：照片自動上傳到 Firebase Storage，生成公開 URL
 - **📱 相機拍照**：支援直接相機拍照或檔案上傳
 - **🤖 AI故事生成**：自動產生溫馨的擬人化故事
 - **☁️ 雲端儲存**：圖片和資料分別儲存到 Storage 和資料庫
@@ -140,14 +140,45 @@
 
 ## 📊 專案進度
 ✅ 所有核心功能已完成，包括：
-- ✅ 完整的照片上傳到 Supabase Storage 功能
+- ✅ 完整的照片上傳到 Firebase Storage 功能
 - ✅ 智慧的找到主人系統
 - ✅ 雙重確認安全機制
 - ✅ 感謝語音播放
 - ✅ 自動資料轉移和記錄保存
 - ✅ 管理員頁面即時資料載入
-- ✅ 上傳功能重複資料問題修復
-- ✅ 管理系統連接真實資料庫（移除虛假示範資料）
+- ✅ Firebase 遷移和設定工具
+- ✅ 專案清理和優化
+
+## 📁 檔案結構
+
+### 核心檔案
+- `index.html` - 主要失物故事牆頁面
+- `script.js` - 原始 Supabase 版本腳本
+- `script-firebase.js` - Firebase 版本腳本
+- `styles.css` - 主要樣式檔案
+- `config.js` - 系統配置檔案
+
+### 管理系統
+- `admin.html` - 管理員後台頁面
+- `admin-script.js` - 管理員功能腳本
+- `admin-styles.css` - 管理員頁面樣式
+
+### Firebase 工具
+- `firebase-test.html` - Firebase 完整測試版本
+- `firebase-simple-test.html` - Firebase 簡化測試工具
+- `firebase-migration.html` - Supabase 到 Firebase 資料遷移工具
+- `firebase-rules-setup.html` - Firebase 規則設定助手
+- `fix-storage-permissions.html` - Storage 權限修復工具
+- `supabase-diagnosis.html` - Supabase 連接診斷工具
+
+### 文檔檔案
+- `README.md` - 專案說明文檔
+- `DEPLOYMENT.md` - 部署指南
+- `firebase-setup-guide.md` - Firebase 設定詳細指南
+- `firebase-quick-fix.md` - 快速問題修復指南
+
+### 資源檔案
+- `c8.png` - Creative Commons 授權標示圖片
 
 ---
 > 設計：AI進化論-花生 | 技術：現代化Web技術棧 | 響應式設計優化

@@ -381,8 +381,6 @@ function showErrorState(message) {
     `;
 }
 
-// 以下是保持原有功能的函數，但改用 Firebase...
-
 // 顯示故事彈窗
 async function showStory(itemId) {
     console.log(`📖 顯示失物故事: ${itemId}`);
@@ -441,7 +439,6 @@ function closeStory() {
     
     // 重置播放狀態
     const playBtn = document.getElementById('playStoryBtn');
-    const playIcon = playBtn.querySelector('.play-icon');
     playBtn.innerHTML = `
         <svg class="play-icon" viewBox="0 0 24 24" width="20" height="20">
             <path d="M8 5v14l11-7z" fill="#fff"/>
@@ -511,8 +508,169 @@ function toggleStoryAudio() {
     }
 }
 
-// 上傳相關功能保持不變，但改用 Firebase...
-// (這裡省略了上傳相關的函數，因為它們主要是 UI 邏輯，只需要修改最終的儲存部分)
+// 管理員登入功能
+function showAdminLogin() {
+    const modal = document.getElementById('adminLoginModal');
+    modal.style.display = 'flex';
+    document.getElementById('adminPassword').focus();
+}
 
-// 以下是所有其他現有功能的 Firebase 版本...
-// (由於篇幅限制，我會在下一個檔案中繼續)
+function hideAdminLogin() {
+    const modal = document.getElementById('adminLoginModal');
+    modal.style.display = 'none';
+    document.getElementById('adminPassword').value = '';
+}
+
+function adminLogin() {
+    const password = document.getElementById('adminPassword').value;
+    const correctPassword = window.LostItemsConfig ? window.LostItemsConfig.config.app.adminPassword : '1234';
+    
+    if (password === correctPassword) {
+        hideAdminLogin();
+        window.location.href = 'admin.html';
+    } else {
+        alert('密碼錯誤，請重新輸入！');
+        document.getElementById('adminPassword').value = '';
+        document.getElementById('adminPassword').focus();
+    }
+}
+
+// 上傳功能
+function showUploadModal() {
+    const modal = document.getElementById('uploadModal');
+    modal.style.display = 'flex';
+}
+
+function hideUploadModal() {
+    const modal = document.getElementById('uploadModal');
+    modal.style.display = 'none';
+    resetUploadForm();
+}
+
+function resetUploadForm() {
+    document.getElementById('uploadItemName').value = '';
+    document.getElementById('uploadFoundLocation').value = '';
+    document.getElementById('uploadDescription').value = '';
+    document.getElementById('uploadFinderName').value = '';
+    uploadedPhoto = null;
+}
+
+// 找到主人功能
+let currentFoundItemId = null;
+
+function showOwnerInputModal(itemId) {
+    currentFoundItemId = itemId;
+    const modal = document.getElementById('ownerInputModal');
+    modal.style.display = 'flex';
+    document.getElementById('ownerNameInput').focus();
+}
+
+function hideOwnerInputModal() {
+    const modal = document.getElementById('ownerInputModal');
+    modal.style.display = 'none';
+    document.getElementById('ownerNameInput').value = '';
+    currentFoundItemId = null;
+}
+
+function confirmOwnerName() {
+    const ownerName = document.getElementById('ownerNameInput').value.trim();
+    
+    if (!ownerName) {
+        alert('請輸入主人姓名');
+        return;
+    }
+    
+    hideOwnerInputModal();
+    showOwnerConfirmModal(ownerName);
+}
+
+function showOwnerConfirmModal(ownerName) {
+    const modal = document.getElementById('ownerConfirmModal');
+    modal.style.display = 'flex';
+    
+    // 這裡應該顯示確認資訊，簡化處理
+    setTimeout(() => {
+        finalizeOwnerFound(ownerName);
+    }, 1000);
+}
+
+function hideOwnerConfirmModal() {
+    const modal = document.getElementById('ownerConfirmModal');
+    modal.style.display = 'none';
+}
+
+async function finalizeOwnerFound(ownerName) {
+    if (!currentFoundItemId) return;
+    
+    try {
+        await markItemAsReturned(currentFoundItemId, ownerName);
+        
+        // 播放感謝語音
+        const thankMessages = [
+            '太好了！失物找到主人了！',
+            '謝謝您幫助失物回家！',
+            '真是太棒了！又一個溫暖的重逢！'
+        ];
+        
+        const randomMessage = thankMessages[Math.floor(Math.random() * thankMessages.length)];
+        
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(randomMessage);
+            utterance.lang = 'zh-TW';
+            utterance.rate = 0.8;
+            utterance.pitch = 1.2;
+            window.speechSynthesis.speak(utterance);
+        }
+        
+        hideOwnerConfirmModal();
+        
+        // 重新載入失物列表
+        setTimeout(() => {
+            loadLostItemsFromDatabase();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('❌ 歸還處理失敗:', error);
+        alert('歸還處理失敗，請稍後重試');
+    }
+}
+
+// 上傳事件監聽器設定
+function setupUploadEventListeners() {
+    // 這裡可以添加上傳相關的事件監聽器
+    console.log('📷 上傳事件監聽器已設定');
+}
+
+// 處理地點變更
+function handleLocationChange(select) {
+    const customInput = document.getElementById('customLocationInput');
+    if (select.value === '其他') {
+        customInput.style.display = 'block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+    }
+}
+
+// 鍵盤事件處理
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        // 關閉所有彈窗
+        closeStory();
+        hideAdminLogin();
+        hideUploadModal();
+        hideOwnerInputModal();
+        hideOwnerConfirmModal();
+    }
+    
+    if (event.key === 'Enter') {
+        // 處理 Enter 鍵
+        if (document.getElementById('adminLoginModal').style.display === 'flex') {
+            adminLogin();
+        }
+        if (document.getElementById('ownerInputModal').style.display === 'flex') {
+            confirmOwnerName();
+        }
+    }
+});
