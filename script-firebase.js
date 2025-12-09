@@ -594,6 +594,7 @@ function resetUploadForm() {
 
 // 找到主人功能
 let currentFoundItemId = null;
+let currentOwnerName = null;
 
 function showOwnerInputModal(itemId) {
     console.log('🎯 開啟找到主人modal，物品ID:', itemId);
@@ -626,6 +627,7 @@ function hideOwnerInputModal() {
     const input = document.getElementById('ownerNameInput');
     if (input) input.value = '';
     currentFoundItemId = null;
+    currentOwnerName = null; // 清空主人姓名
 }
 
 function confirmOwnerName() {
@@ -635,6 +637,9 @@ function confirmOwnerName() {
         alert('請輸入主人姓名');
         return;
     }
+    
+    console.log('📝 確認主人姓名:', ownerName);
+    currentOwnerName = ownerName; // 保存到全局變量
     
     hideOwnerInputModal();
     showOwnerConfirmModal(ownerName);
@@ -650,13 +655,22 @@ function showOwnerConfirmModal(ownerName) {
         return;
     }
     
+    // 顯示確認資訊
+    const confirmInfo = document.getElementById('confirmInfo');
+    if (confirmInfo) {
+        confirmInfo.innerHTML = `
+            <div style="text-align: center; padding: 1rem;">
+                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📝 物品主人姓名</p>
+                <p style="font-size: 1.5rem; font-weight: bold; color: #4CAF50;">${escapeHtml(ownerName)}</p>
+            </div>
+        `;
+    }
+    
     modal.style.display = 'flex';
     modal.classList.add('active');
     
-    // 顯示確認資訊後自動執行
-    setTimeout(() => {
-        finalizeOwnerFound(ownerName);
-    }, 1000);
+    // 移除自動執行，讓用戶手動點擊確認按鈕
+    console.log('⏳ 等待用戶點擊確認歸還按鈕...');
 }
 
 function hideOwnerConfirmModal() {
@@ -671,10 +685,25 @@ function hideOwnerConfirmModal() {
 }
 
 async function finalizeOwnerFound(ownerName) {
-    if (!currentFoundItemId) return;
+    // 如果沒有傳入 ownerName，使用全局變量
+    const finalOwnerName = ownerName || currentOwnerName;
+    
+    console.log('🎉 執行歸還流程，物品ID:', currentFoundItemId, '主人:', finalOwnerName);
+    
+    if (!currentFoundItemId) {
+        console.error('❌ 缺少物品ID');
+        alert('錯誤：缺少物品資訊');
+        return;
+    }
+    
+    if (!finalOwnerName) {
+        console.error('❌ 缺少主人姓名');
+        alert('錯誤：缺少主人姓名');
+        return;
+    }
     
     try {
-        await markItemAsReturned(currentFoundItemId, ownerName);
+        await markItemAsReturned(currentFoundItemId, finalOwnerName);
         
         // 播放感謝語音
         const thankMessages = [
@@ -695,6 +724,10 @@ async function finalizeOwnerFound(ownerName) {
         
         hideOwnerConfirmModal();
         
+        // 清空全局變量
+        currentFoundItemId = null;
+        currentOwnerName = null;
+        
         // 重新載入失物列表
         setTimeout(() => {
             loadLostItemsFromDatabase();
@@ -703,6 +736,10 @@ async function finalizeOwnerFound(ownerName) {
     } catch (error) {
         console.error('❌ 歸還處理失敗:', error);
         alert('歸還處理失敗，請稍後重試');
+        hideOwnerConfirmModal();
+        // 發生錯誤時也清空變量
+        currentFoundItemId = null;
+        currentOwnerName = null;
     }
 }
 
