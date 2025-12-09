@@ -637,8 +637,258 @@ async function finalizeOwnerFound(ownerName) {
 
 // 上傳事件監聽器設定
 function setupUploadEventListeners() {
-    // 這裡可以添加上傳相關的事件監聽器
+    // 確保元素存在後再添加事件監聽器
+    const startCameraBtn = document.getElementById('startUploadCameraBtn');
+    const captureBtn = document.getElementById('captureUploadBtn');
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const fileInput = document.getElementById('uploadFileInput');
+    const generateBtn = document.getElementById('generateUploadStoryBtn');
+    
+    if (startCameraBtn) {
+        startCameraBtn.addEventListener('click', startUploadCamera);
+    }
+    
+    if (captureBtn) {
+        captureBtn.addEventListener('click', captureUploadPhoto);
+    }
+    
+    if (selectFileBtn) {
+        selectFileBtn.addEventListener('click', () => {
+            document.getElementById('uploadFileInput').click();
+        });
+    }
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', handleUploadFileSelect);
+    }
+    
+    if (generateBtn) {
+        // 移除可能存在的舊監聽器，添加新的
+        generateBtn.removeEventListener('click', generateAndSaveItem);
+        generateBtn.addEventListener('click', generateAndSaveItem);
+    }
+    
     console.log('📷 上傳事件監聽器已設定');
+}
+
+// 啟動上傳相機
+async function startUploadCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+        });
+        const video = document.getElementById('uploadCameraVideo');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        
+        // 隱藏佔位符
+        document.getElementById('cameraPlaceholder').style.display = 'none';
+        
+        document.getElementById('startUploadCameraBtn').style.display = 'none';
+        document.getElementById('captureUploadBtn').style.display = 'block';
+        
+        console.log('上傳相機已啟動');
+    } catch (error) {
+        console.error('無法啟動相機:', error);
+        alert('無法啟動相機，請檢查權限設定或使用檔案上傳功能');
+    }
+}
+
+// 拍攝上傳照片
+function captureUploadPhoto() {
+    const video = document.getElementById('uploadCameraVideo');
+    const canvas = document.getElementById('uploadPhotoCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    uploadedPhoto = canvas.toDataURL('image/jpeg', 0.8);
+    
+    // 停止相機
+    const stream = video.srcObject;
+    const tracks = stream.getTracks();
+    tracks.forEach(track => track.stop());
+    
+    // 顯示拍攝的照片
+    showCapturedPhoto(uploadedPhoto);
+    
+    console.log('照片已拍攝');
+}
+
+// 處理檔案選擇
+function handleUploadFileSelect(event) {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            uploadedPhoto = e.target.result;
+            showCapturedPhoto(uploadedPhoto);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        alert('請選擇有效的圖片檔案');
+    }
+}
+
+// 顯示拍攝的照片
+function showCapturedPhoto(photoData) {
+    const placeholder = document.getElementById('cameraPlaceholder');
+    const video = document.getElementById('uploadCameraVideo');
+    
+    // 隱藏相機和佔位符
+    video.style.display = 'none';
+    placeholder.style.display = 'none';
+    
+    // 創建並顯示圖片
+    const img = document.createElement('img');
+    img.src = photoData;
+    img.style.width = '100%';
+    img.style.height = '300px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '15px';
+    
+    const container = document.getElementById('uploadCameraContainer');
+    container.appendChild(img);
+    
+    // 隱藏拍照按鈕，顯示重新拍照按鈕
+    document.getElementById('captureUploadBtn').style.display = 'none';
+    document.getElementById('startUploadCameraBtn').textContent = '重新拍照';
+    document.getElementById('startUploadCameraBtn').style.display = 'block';
+    document.getElementById('startUploadCameraBtn').onclick = resetUploadCamera;
+}
+
+// 重置上傳相機
+function resetUploadCamera() {
+    const container = document.getElementById('uploadCameraContainer');
+    const placeholder = document.getElementById('cameraPlaceholder');
+    
+    // 移除圖片
+    const img = container.querySelector('img');
+    if (img) {
+        container.removeChild(img);
+    }
+    
+    // 重置按鈕
+    document.getElementById('startUploadCameraBtn').textContent = '開啟相機';
+    document.getElementById('startUploadCameraBtn').onclick = null;
+    document.getElementById('startUploadCameraBtn').style.display = 'block';
+    document.getElementById('captureUploadBtn').style.display = 'none';
+    
+    // 顯示佔位符
+    placeholder.style.display = 'block';
+    
+    uploadedPhoto = null;
+}
+
+// 生成故事並儲存失物
+async function generateAndSaveItem() {
+    const itemName = document.getElementById('uploadItemName').value.trim();
+    const foundLocation = document.getElementById('uploadFoundLocation').value;
+    const customLocation = document.getElementById('customLocationInput').value.trim();
+    const description = document.getElementById('uploadDescription').value.trim();
+    const finderName = document.getElementById('uploadFinderName').value.trim();
+    
+    // 驗證必填欄位
+    if (!itemName) {
+        alert('請輸入失物名稱');
+        return;
+    }
+    
+    if (!foundLocation) {
+        alert('請選擇發現地點');
+        return;
+    }
+    
+    // 使用自訂地點（如果有）
+    const finalLocation = foundLocation === '其他' ? customLocation : foundLocation;
+    
+    if (foundLocation === '其他' && !customLocation) {
+        alert('請輸入其他地點');
+        return;
+    }
+    
+    try {
+        // 顯示載入狀態
+        const generateBtn = document.getElementById('generateUploadStoryBtn');
+        const originalText = generateBtn.textContent;
+        generateBtn.textContent = '正在生成故事...';
+        generateBtn.disabled = true;
+        
+        // 生成故事
+        const story = generateSimpleStory(itemName, finalLocation, description);
+        
+        // 準備資料
+        const itemData = {
+            item_name: itemName,
+            found_location: finalLocation,
+            description: description,
+            finder_name: finderName,
+            story: story
+        };
+        
+        // 如果有照片，轉換為 Blob
+        let imageFile = null;
+        if (uploadedPhoto) {
+            imageFile = dataURLtoBlob(uploadedPhoto);
+        }
+        
+        // 上傳到 Firebase
+        const result = await uploadLostItemToFirebase(itemData, imageFile);
+        
+        if (result.success) {
+            alert('失物已成功上傳！');
+            hideUploadModal();
+            
+            // 重新載入失物列表
+            setTimeout(() => {
+                loadLostItemsFromDatabase();
+            }, 1000);
+        } else {
+            throw new Error('上傳失敗');
+        }
+        
+    } catch (error) {
+        console.error('❌ 生成故事或儲存失敗:', error);
+        alert('上傳失敗，請稍後重試');
+    } finally {
+        // 恢復按鈕狀態
+        const generateBtn = document.getElementById('generateUploadStoryBtn');
+        generateBtn.textContent = originalText;
+        generateBtn.disabled = false;
+    }
+}
+
+// 簡單故事生成（備用方案）
+function generateSimpleStory(itemName, location, description) {
+    const stories = [
+        `哈囉！我是${itemName}！我在${location}被發現了。我好想念我的小主人，希望他快來帶我回家。我會乖乖地等待，直到我們重新相遇的那一刻！`,
+        `大家好，我是${itemName}！我在${location}孤單地等待著。我記得小主人總是很愛護我，現在我好想念那溫暖的感覺。如果你認識我的主人，請告訴他我在這裡等他！`,
+        `嗨！我是${itemName}！我在${location}和小主人走散了。我每天都在想念我們一起度過的快樂時光。我相信小主人一定很擔心我，快來找我吧！`,
+        `你好！我是${itemName}！我在${location}被好心人發現。雖然現在很孤單，但我相信小主人一定會來找我的。我會耐心等待，因為我知道我們的緣分還沒結束！`
+    ];
+    
+    let story = stories[Math.floor(Math.random() * stories.length)];
+    
+    if (description) {
+        story += ` 我的特徵是：${description}。`;
+    }
+    
+    return story;
+}
+
+// 將 DataURL 轉換為 Blob
+function dataURLtoBlob(dataURL) {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
 }
 
 // 處理地點變更
