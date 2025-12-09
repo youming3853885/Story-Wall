@@ -417,6 +417,8 @@ function enableStoryEdit() {
 
 // 儲存失物
 async function saveItem() {
+    console.log('💾 開始儲存失物...');
+    
     try {
         // 收集表單資料
         const itemData = {
@@ -428,14 +430,31 @@ async function saveItem() {
             found_time: document.getElementById('foundTime').value
         };
         
+        console.log('📋 表單資料:', itemData);
+        console.log('📷 圖片資料:', capturedPhoto ? '已設置' : '未設置');
+        console.log('🔥 Firebase狀態:', { 
+            firebaseApp: !!firebaseApp, 
+            db: !!db, 
+            storage: !!storage 
+        });
+        
         // 驗證必填欄位
         if (!itemData.item_name || !itemData.found_location) {
+            console.error('❌ 缺少必填欄位');
             showError('請填寫失物名稱和發現地點');
             return;
         }
         
         if (!capturedPhoto) {
+            console.error('❌ 缺少圖片');
             showError('請先拍照或選擇圖片');
+            return;
+        }
+        
+        // 檢查Firebase初始化
+        if (!db || !storage) {
+            console.error('❌ Firebase未正確初始化');
+            showError('系統未正確初始化，請重新整理頁面');
             return;
         }
         
@@ -445,13 +464,21 @@ async function saveItem() {
         saveBtn.textContent = '儲存中...';
         saveBtn.disabled = true;
         
+        console.log('🔄 開始轉換圖片...');
+        
         // 轉換圖片為 Blob
         const imageBlob = dataURLtoBlob(capturedPhoto);
+        console.log('✅ 圖片轉換完成，大小:', imageBlob.size, 'bytes');
+        
+        console.log('☁️ 開始上傳到 Firebase...');
         
         // 上傳到 Firebase
         const result = await uploadLostItemToFirebase(itemData, imageBlob);
         
-        if (result.success) {
+        console.log('📤 上傳結果:', result);
+        
+        if (result && result.success) {
+            console.log('✅ 儲存成功！');
             showSuccess('失物已成功儲存！');
             resetForm();
             updateStepStatus(1);
@@ -461,12 +488,14 @@ async function saveItem() {
                 loadItemsFromDatabase();
             }
         } else {
-            throw new Error('儲存失敗');
+            console.error('❌ 上傳結果無效:', result);
+            throw new Error('儲存失敗：上傳結果無效');
         }
         
     } catch (error) {
         console.error('❌ 儲存失物失敗:', error);
-        showError('儲存失敗，請稍後重試');
+        console.error('❌ 錯誤詳情:', error.message, error.stack);
+        showError(`儲存失敗：${error.message || '未知錯誤'}`);
     } finally {
         // 恢復按鈕狀態
         const saveBtn = document.getElementById('saveItemBtn');
@@ -477,17 +506,28 @@ async function saveItem() {
 
 // 上傳失物到 Firebase
 async function uploadLostItemToFirebase(itemData, imageFile) {
+    console.log('☁️ 開始上傳到Firebase，物品:', itemData.item_name);
+    
     try {
         let imageUrl = '';
         
         // 上傳圖片到 Firebase Storage
         if (imageFile) {
+            console.log('📤 開始上傳圖片到Storage...');
             const timestamp = Date.now();
             const fileName = `lost-items-images/${timestamp}_${itemData.item_name.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+            console.log('📁 檔案名稱:', fileName);
+            
             const storageRef = storage.ref(fileName);
+            console.log('📍 Storage參考:', storageRef.fullPath);
             
             const uploadTask = await storageRef.put(imageFile);
+            console.log('✅ 圖片上傳完成');
+            
             imageUrl = await uploadTask.ref.getDownloadURL();
+            console.log('🔗 圖片URL:', imageUrl);
+        } else {
+            console.warn('⚠️ 沒有提供圖片檔案');
         }
         
         // 準備要儲存的資料
@@ -502,17 +542,26 @@ async function uploadLostItemToFirebase(itemData, imageFile) {
             updated_at: firebase.firestore.FieldValue.serverTimestamp()
         };
         
+        console.log('💾 準備儲存到Firestore:', lostItemData);
+        
         // 儲存到 Firestore
         const docRef = await db.collection('lost_items').add(lostItemData);
+        console.log('✅ Firestore儲存完成，文檔ID:', docRef.id);
         
-        return {
+        const result = {
             success: true,
             id: docRef.id,
             imageUrl: imageUrl
         };
         
+        console.log('🎉 上傳完成，結果:', result);
+        return result;
+        
     } catch (error) {
         console.error('❌ 上傳失物失敗:', error);
+        console.error('❌ 錯誤類型:', error.name);
+        console.error('❌ 錯誤訊息:', error.message);
+        console.error('❌ 錯誤代碼:', error.code);
         throw error;
     }
 }
