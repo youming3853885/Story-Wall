@@ -96,6 +96,18 @@ function setupEventListeners() {
     if (saveItemBtn) {
         saveItemBtn.addEventListener('click', saveItem);
     }
+    
+    // 重新生成故事按鈕
+    const regenerateBtn = document.getElementById('regenerateStoryBtn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', generateStory);
+    }
+    
+    // 手動編輯故事按鈕
+    const editBtn = document.getElementById('editStoryBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', enableStoryEdit);
+    }
 }
 
 // 顯示錯誤訊息
@@ -325,10 +337,82 @@ function generateStory() {
         .replace(/{location}/g, foundLocation)
         .replace(/{time}/g, timeStr);
     
-    document.getElementById('storyText').value = story;
-    updateStepStatus(3);
+    const storyElement = document.getElementById('generatedStory');
+    if (storyElement) {
+        storyElement.textContent = story;
+        
+        // 顯示故事預覽區域
+        const storyPreview = document.getElementById('storyPreview');
+        if (storyPreview) {
+            storyPreview.style.display = 'block';
+        }
+        
+        // 顯示儲存按鈕
+        const saveBtn = document.getElementById('saveItemBtn');
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-flex';
+        }
+    }
     
+    updateStepStatus(3);
     showSuccess('故事已生成！');
+}
+
+// 啟用故事手動編輯
+function enableStoryEdit() {
+    const storyElement = document.getElementById('generatedStory');
+    if (!storyElement) return;
+    
+    const currentStory = storyElement.textContent;
+    
+    // 創建編輯區域
+    const editArea = document.createElement('textarea');
+    editArea.value = currentStory;
+    editArea.style.width = '100%';
+    editArea.style.minHeight = '120px';
+    editArea.style.padding = '12px';
+    editArea.style.border = '2px solid #4CAF50';
+    editArea.style.borderRadius = '8px';
+    editArea.style.fontSize = '14px';
+    editArea.style.lineHeight = '1.5';
+    editArea.style.resize = 'vertical';
+    
+    // 創建按鈕容器
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.marginTop = '10px';
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '10px';
+    
+    // 確認按鈕
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = '✅ 確認修改';
+    confirmBtn.className = 'btn primary';
+    confirmBtn.onclick = () => {
+        storyElement.textContent = editArea.value;
+        storyElement.parentNode.replaceChild(document.createTextNode(editArea.value), editArea);
+        buttonContainer.remove();
+        showSuccess('故事已更新！');
+    };
+    
+    // 取消按鈕
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '❌ 取消編輯';
+    cancelBtn.className = 'btn secondary';
+    cancelBtn.onclick = () => {
+        storyElement.parentNode.replaceChild(document.createTextNode(currentStory), editArea);
+        buttonContainer.remove();
+    };
+    
+    buttonContainer.appendChild(confirmBtn);
+    buttonContainer.appendChild(cancelBtn);
+    
+    // 替換顯示元素
+    storyElement.parentNode.replaceChild(editArea, storyElement);
+    editArea.parentNode.insertBefore(buttonContainer, editArea.nextSibling);
+    
+    // 聚焦到編輯區域
+    editArea.focus();
+    editArea.select();
 }
 
 // 儲存失物
@@ -340,7 +424,7 @@ async function saveItem() {
             found_location: document.getElementById('foundLocation').value,
             description: document.getElementById('description').value.trim(),
             finder_name: document.getElementById('finderName').value.trim(),
-            story: document.getElementById('storyText').value.trim(),
+            story: document.getElementById('generatedStory').textContent.trim(),
             found_time: document.getElementById('foundTime').value
         };
         
@@ -663,7 +747,22 @@ function resetForm() {
     document.getElementById('foundLocation').value = '';
     document.getElementById('description').value = '';
     document.getElementById('finderName').value = '';
-    document.getElementById('storyText').value = '';
+    const storyElement = document.getElementById('generatedStory');
+    if (storyElement) {
+        storyElement.textContent = '';
+    }
+    
+    // 隱藏故事預覽區域
+    const storyPreview = document.getElementById('storyPreview');
+    if (storyPreview) {
+        storyPreview.style.display = 'none';
+    }
+    
+    // 隱藏儲存按鈕
+    const saveBtn = document.getElementById('saveItemBtn');
+    if (saveBtn) {
+        saveBtn.style.display = 'none';
+    }
     
     const now = new Date();
     document.getElementById('foundTime').value = now.toISOString().slice(0, 16);
