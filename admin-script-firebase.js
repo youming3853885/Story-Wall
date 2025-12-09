@@ -265,17 +265,50 @@ function capturePhoto() {
 
 // 重置相機
 function resetCamera() {
+    console.log('🔄 重置相機...');
+    
     const container = document.getElementById('cameraContainer');
+    if (!container) {
+        console.warn('⚠️ 找不到 cameraContainer 元素');
+        return;
+    }
+    
     container.innerHTML = `
         <video id="cameraVideo" autoplay muted></video>
         <canvas id="photoCanvas" style="display: none;"></canvas>
+        <div class="camera-overlay">
+            <button id="startCameraBtn" class="camera-btn primary">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" fill="currentColor"/>
+                </svg>
+                開啟相機
+            </button>
+            <button id="captureBtn" class="camera-btn primary" style="display: none;">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                </svg>
+                拍照
+            </button>
+        </div>
     `;
     
-    document.getElementById('startCameraBtn').style.display = 'block';
-    document.getElementById('captureBtn').style.display = 'none';
+    // 重新綁定事件監聽器
+    const startBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    
+    if (startBtn) {
+        startBtn.addEventListener('click', startCamera);
+    }
+    
+    if (captureBtn) {
+        captureBtn.addEventListener('click', capturePhoto);
+    }
     
     capturedPhoto = null;
     updateStepStatus(1);
+    
+    console.log('✅ 相機重置完成');
 }
 
 // 處理檔案選擇
@@ -792,31 +825,59 @@ function updateStepStatus(step) {
 }
 
 function resetForm() {
-    document.getElementById('itemName').value = '';
-    document.getElementById('foundLocation').value = '';
-    document.getElementById('itemDescription').value = '';
-    document.getElementById('finderName').value = '';
-    const storyElement = document.getElementById('generatedStory');
-    if (storyElement) {
-        storyElement.textContent = '';
+    console.log('🔄 重置表單...');
+    
+    try {
+        // 重置表單欄位
+        const itemNameEl = document.getElementById('itemName');
+        const foundLocationEl = document.getElementById('foundLocation');
+        const itemDescriptionEl = document.getElementById('itemDescription');
+        const finderNameEl = document.getElementById('finderName');
+        const foundTimeEl = document.getElementById('foundTime');
+        
+        if (itemNameEl) itemNameEl.value = '';
+        if (foundLocationEl) foundLocationEl.value = '';
+        if (itemDescriptionEl) itemDescriptionEl.value = '';
+        if (finderNameEl) finderNameEl.value = '';
+        
+        // 重置故事內容
+        const storyElement = document.getElementById('generatedStory');
+        if (storyElement) {
+            storyElement.textContent = '';
+        }
+        
+        // 隱藏故事預覽區域
+        const storyPreview = document.getElementById('storyPreview');
+        if (storyPreview) {
+            storyPreview.style.display = 'none';
+        }
+        
+        // 隱藏儲存按鈕
+        const saveBtn = document.getElementById('saveItemBtn');
+        if (saveBtn) {
+            saveBtn.style.display = 'none';
+        }
+        
+        // 設置當前時間
+        if (foundTimeEl) {
+            const now = new Date();
+            foundTimeEl.value = now.toISOString().slice(0, 16);
+        }
+        
+        // 重置相機（添加錯誤處理）
+        try {
+            resetCamera();
+        } catch (cameraError) {
+            console.warn('⚠️ 重置相機時發生錯誤:', cameraError);
+            // 相機重置失敗不影響整體表單重置
+        }
+        
+        console.log('✅ 表單重置完成');
+        
+    } catch (error) {
+        console.error('❌ 表單重置失敗:', error);
+        // 即使重置失敗也不拋出錯誤，避免影響儲存成功的提示
     }
-    
-    // 隱藏故事預覽區域
-    const storyPreview = document.getElementById('storyPreview');
-    if (storyPreview) {
-        storyPreview.style.display = 'none';
-    }
-    
-    // 隱藏儲存按鈕
-    const saveBtn = document.getElementById('saveItemBtn');
-    if (saveBtn) {
-        saveBtn.style.display = 'none';
-    }
-    
-    const now = new Date();
-    document.getElementById('foundTime').value = now.toISOString().slice(0, 16);
-    
-    resetCamera();
 }
 
 function escapeHtml(text) {
