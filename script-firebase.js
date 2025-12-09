@@ -147,7 +147,7 @@ function displayLostItems(items) {
 // 建立失物卡片
 function createLostItemCard(item) {
     const card = document.createElement('div');
-    card.className = 'lost-item-card';
+    card.className = 'item-card';
     card.setAttribute('data-item-id', item.id);
     
     // 決定要顯示的圖片
@@ -168,10 +168,13 @@ function createLostItemCard(item) {
             <img src="${imageSource}" alt="${item.item_name}" class="item-image" 
                  onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgNzBDMTA4LjI4NCA3MCA5NS4xNTkgNzYuNzM2IDk1IDE4NUg5NUMxMDUgODUgMTE1IDg1IDEyNSA4NUMxMzUgODUgMTQ1IDc2LjczNiAxNDUgODVIMTQ1QzE0NS4xNTkgNzYuNzM2IDEzMi4yODQgNzAgMTI1IDcwSDEwMFoiIGZpbGw9IiNEMUQ1REIiLz4KPC9zdmc+'">
             <div class="play-overlay">
-                <svg class="play-icon" viewBox="0 0 24 24" width="32" height="32">
+                <svg class="play-icon" viewBox="0 0 24 24" width="24" height="24">
                     <path d="M8 5v14l11-7z" fill="#fff"/>
                 </svg>
             </div>
+            <button class="found-owner-btn" onclick="showOwnerInputModal('${item.id}'); event.stopPropagation();">
+                🎉 找到主人
+            </button>
         </div>
         <div class="item-info">
             <h3 class="item-name">${escapeHtml(item.item_name)}</h3>
@@ -180,9 +183,6 @@ function createLostItemCard(item) {
                 <p class="item-time">🕒 ${timeAgo}</p>
                 ${item.finder_name ? `<p class="item-finder">👤 ${escapeHtml(item.finder_name)}</p>` : ''}
             </div>
-            <button class="found-owner-btn" onclick="showOwnerInputModal('${item.id}')" title="找到主人">
-                🎉 找到主人
-            </button>
         </div>
     `;
     
