@@ -424,7 +424,7 @@ async function saveItem() {
         const itemData = {
             item_name: document.getElementById('itemName').value.trim(),
             found_location: document.getElementById('foundLocation').value,
-            description: document.getElementById('description').value.trim(),
+            description: document.getElementById('itemDescription').value.trim(),
             finder_name: document.getElementById('finderName').value.trim(),
             story: document.getElementById('generatedStory').textContent.trim(),
             found_time: document.getElementById('foundTime').value
@@ -794,7 +794,7 @@ function updateStepStatus(step) {
 function resetForm() {
     document.getElementById('itemName').value = '';
     document.getElementById('foundLocation').value = '';
-    document.getElementById('description').value = '';
+    document.getElementById('itemDescription').value = '';
     document.getElementById('finderName').value = '';
     const storyElement = document.getElementById('generatedStory');
     if (storyElement) {
