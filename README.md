@@ -181,4 +181,4 @@
 - `c8.png` - Creative Commons 授權標示圖片
 
 ---
-> 設計：AI進化論-花生 | 技術：現代化Web技術棧 | 響應式設計優化
+> 設計：Eddie Chen (ezAI.today)
