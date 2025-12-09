@@ -484,59 +484,56 @@ async function loadItemsFromDatabase() {
 
 // 顯示失物列表
 function displayLostItems(items) {
-    const container = document.getElementById('lostItemsList');
-    if (!container) return;
+    const container = document.getElementById('itemsTableBody');
+    if (!container) {
+        console.error('❌ 找不到 itemsTableBody 容器');
+        return;
+    }
+    
+    console.log(`📋 準備顯示 ${items.length} 筆失物資料`);
     
     if (items.length === 0) {
-        container.innerHTML = '<p class="no-items">目前沒有失物</p>';
+        container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #999;">目前沒有失物</td></tr>';
         return;
     }
     
     container.innerHTML = items.map(item => `
-        <div class="item-card" data-item-id="${item.id}">
-            <div class="item-image">
+        <tr data-item-id="${item.id}">
+            <td>
                 <img src="${item.image_url || 'placeholder.jpg'}" alt="${item.item_name}" 
+                     style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;"
                      onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgNzBDMTA4LjI4NCA3MCA5NS4xNTkgNzYuNzM2IDk1IDE4NUg5NUMxMDUgODUgMTE1IDg1IDEyNSA4NUMxMzUgODUgMTQ1IDc2LjczNiAxNDUgODVIMTQ1QzE0NS4xNTkgNzYuNzM2IDEzMi4yODQgNzAgMTI1IDcwSDEwMFoiIGZpbGw9IiNEMUQ1REIiLz4KPC9zdmc+'">
-            </div>
-            <div class="item-info">
-                <h3>${escapeHtml(item.item_name)}</h3>
-                <p><strong>地點:</strong> ${escapeHtml(item.found_location)}</p>
-                <p><strong>時間:</strong> ${item.created_at ? item.created_at.toLocaleString() : '未知'}</p>
-                ${item.finder_name ? `<p><strong>拾得者:</strong> ${escapeHtml(item.finder_name)}</p>` : ''}
-                <div class="item-actions">
-                    <button onclick="markAsReturned('${item.id}')" class="btn-returned">標記為已歸還</button>
-                    <button onclick="deleteItem('${item.id}')" class="btn-delete">刪除</button>
+            </td>
+            <td>
+                <strong>${escapeHtml(item.item_name)}</strong>
+                ${item.finder_name ? `<br><small>拾得者: ${escapeHtml(item.finder_name)}</small>` : ''}
+            </td>
+            <td>${escapeHtml(item.found_location)}</td>
+            <td>${item.created_at ? new Date(item.created_at).toLocaleString('zh-TW') : '未知'}</td>
+            <td><span class="status-badge unclaimed">未認領</span></td>
+            <td>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button onclick="markAsReturned('${item.id}')" class="action-btn success" title="標記為已歸還">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                    <button onclick="deleteItem('${item.id}')" class="action-btn danger" title="刪除">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" fill="currentColor"/>
+                        </svg>
+                    </button>
                 </div>
-            </div>
-        </div>
+            </td>
+        </tr>
     `).join('');
 }
 
-// 顯示已歸還列表
+// 顯示已歸還列表（在同一個表格中顯示）
 function displayReturnedItems(items) {
-    const container = document.getElementById('returnedItemsList');
-    if (!container) return;
-    
-    if (items.length === 0) {
-        container.innerHTML = '<p class="no-items">目前沒有已歸還的失物</p>';
-        return;
-    }
-    
-    container.innerHTML = items.map(item => `
-        <div class="item-card returned" data-item-id="${item.id}">
-            <div class="item-image">
-                <img src="${item.image_url || 'placeholder.jpg'}" alt="${item.item_name}">
-            </div>
-            <div class="item-info">
-                <h3>${escapeHtml(item.item_name)}</h3>
-                <p><strong>主人:</strong> ${escapeHtml(item.owner_name || '未知')}</p>
-                <p><strong>歸還時間:</strong> ${item.returned_at ? item.returned_at.toLocaleString() : '未知'}</p>
-                <div class="item-actions">
-                    <button onclick="deleteReturnedItem('${item.id}')" class="btn-delete">刪除記錄</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    // admin.html 只有一個表格，已歸還的物品不單獨顯示
+    // 統計數據會在 updateStatisticsFromDatabase 中更新
+    console.log(`📦 已歸還物品數量: ${items.length}`);
 }
 
 // 標記為已歸還
@@ -617,6 +614,8 @@ async function deleteReturnedItem(itemId) {
 // 更新統計資料
 async function updateStatisticsFromDatabase() {
     try {
+        console.log('📊 開始更新統計資料...');
+        
         // 獲取失物統計
         const lostItemsSnapshot = await db.collection('lost_items').get();
         const returnedItemsSnapshot = await db.collection('returned_items').get();
@@ -626,14 +625,24 @@ async function updateStatisticsFromDatabase() {
         const totalCount = lostCount + returnedCount;
         const returnRate = totalCount > 0 ? ((returnedCount / totalCount) * 100).toFixed(1) : 0;
         
-        // 更新統計顯示
-        document.getElementById('totalItems').textContent = totalCount;
-        document.getElementById('lostItems').textContent = lostCount;
-        document.getElementById('returnedItems').textContent = returnedCount;
-        document.getElementById('returnRate').textContent = returnRate + '%';
+        console.log(`📊 統計: 總計=${totalCount}, 未認領=${lostCount}, 已認領=${returnedCount}, 認領率=${returnRate}%`);
+        
+        // 更新統計顯示 - 使用 admin.html 中的正確 ID
+        const totalElement = document.getElementById('totalItems');
+        const claimedElement = document.getElementById('claimedItems');
+        const unclaimedElement = document.getElementById('unclaimedItems');
+        const rateElement = document.getElementById('claimRate');
+        
+        if (totalElement) totalElement.textContent = totalCount;
+        if (claimedElement) claimedElement.textContent = returnedCount;
+        if (unclaimedElement) unclaimedElement.textContent = lostCount;
+        if (rateElement) rateElement.textContent = returnRate + '%';
+        
+        console.log('✅ 統計資料更新完成');
         
     } catch (error) {
         console.error('❌ 更新統計資料失敗:', error);
+        showError('統計資料更新失敗');
     }
 }
 

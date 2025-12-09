@@ -290,8 +290,7 @@ body {
     box-shadow: 0 2px 10px rgba(52, 199, 89, 0.4);
     backdrop-filter: blur(10px);
     z-index: 10;
-    opacity: 0;
-    transform: translateY(-4px);
+    opacity: 0.9;
     /* 觸控優化 */
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -299,7 +298,7 @@ body {
 
 .lost-item-card:hover .found-owner-btn {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1.05);
 }
 
 .found-owner-btn:hover {
