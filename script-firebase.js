@@ -705,6 +705,32 @@ function reInputOwnerName() {
     }, 350); // 等待確認modal關閉動畫完成
 }
 
+// 關閉所有modal的通用函數
+function closeAllModals() {
+    console.log('🔄 關閉所有modal');
+    
+    // 關閉故事modal
+    const storyModal = document.getElementById('storyModal');
+    if (storyModal && storyModal.style.display !== 'none') {
+        console.log('📖 關閉故事modal');
+        closeStory();
+    }
+    
+    // 關閉上傳modal
+    const uploadModal = document.getElementById('uploadModal');
+    if (uploadModal && uploadModal.style.display !== 'none') {
+        console.log('📤 關閉上傳modal');
+        hideUploadModal();
+    }
+    
+    // 關閉管理員登入modal
+    const adminModal = document.getElementById('adminLoginModal');
+    if (adminModal && adminModal.style.display !== 'none') {
+        console.log('🔐 關閉管理員modal');
+        hideAdminLogin();
+    }
+}
+
 async function finalizeOwnerFound(ownerName) {
     // 如果沒有傳入 ownerName，使用全局變量
     const finalOwnerName = ownerName || currentOwnerName;
@@ -744,6 +770,9 @@ async function finalizeOwnerFound(ownerName) {
         }
         
         hideOwnerConfirmModal();
+        
+        // 關閉所有可能打開的modal
+        closeAllModals();
         
         // 清空全局變量
         currentFoundItemId = null;
