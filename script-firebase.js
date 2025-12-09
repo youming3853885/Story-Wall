@@ -614,8 +614,8 @@ function showOwnerInputModal(itemId) {
     }, 100);
 }
 
-function hideOwnerInputModal() {
-    console.log('❌ 關閉找到主人modal');
+function hideOwnerInputModal(clearData = false) {
+    console.log('❌ 關閉找到主人modal，清空資料:', clearData);
     const modal = document.getElementById('ownerInputModal');
     if (!modal) return;
     
@@ -626,8 +626,13 @@ function hideOwnerInputModal() {
     
     const input = document.getElementById('ownerNameInput');
     if (input) input.value = '';
-    currentFoundItemId = null;
-    currentOwnerName = null; // 清空主人姓名
+    
+    // 只有在取消操作時才清空變量
+    if (clearData) {
+        currentFoundItemId = null;
+        currentOwnerName = null;
+        console.log('🗑️ 已清空物品資訊和主人姓名');
+    }
 }
 
 function confirmOwnerName() {
@@ -641,7 +646,7 @@ function confirmOwnerName() {
     console.log('📝 確認主人姓名:', ownerName);
     currentOwnerName = ownerName; // 保存到全局變量
     
-    hideOwnerInputModal();
+    hideOwnerInputModal(false); // 不清空資料，繼續流程
     showOwnerConfirmModal(ownerName);
 }
 
@@ -682,6 +687,22 @@ function hideOwnerConfirmModal() {
     setTimeout(() => {
         modal.style.display = 'none';
     }, 300); // 等待動畫完成
+}
+
+function reInputOwnerName() {
+    console.log('🔄 重新輸入主人姓名');
+    // 清空主人姓名但保留物品ID
+    currentOwnerName = null;
+    
+    // 關閉確認modal
+    hideOwnerConfirmModal();
+    
+    // 重新打開輸入modal
+    setTimeout(() => {
+        if (currentFoundItemId) {
+            showOwnerInputModal(currentFoundItemId);
+        }
+    }, 350); // 等待確認modal關閉動畫完成
 }
 
 async function finalizeOwnerFound(ownerName) {
@@ -1018,7 +1039,7 @@ document.addEventListener('keydown', function(event) {
         closeStory();
         hideAdminLogin();
         hideUploadModal();
-        hideOwnerInputModal();
+        hideOwnerInputModal(true); // ESC取消，清空資料
         hideOwnerConfirmModal();
     }
     

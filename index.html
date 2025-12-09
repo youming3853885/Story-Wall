@@ -245,7 +245,7 @@
             <div class="owner-input-content">
                 <div class="owner-input-header">
                     <h3>🎉 找到主人了！</h3>
-                    <button class="close-btn" onclick="hideOwnerInputModal()">✕</button>
+                    <button class="close-btn" onclick="hideOwnerInputModal(true)">✕</button>
                 </div>
                 <div class="owner-input-body">
                     <div class="found-item-preview" id="foundItemPreview">
@@ -261,7 +261,7 @@
                     <button onclick="confirmOwnerName()" class="owner-btn primary" id="confirmOwnerBtn">
                         ✅ 確認姓名
                     </button>
-                    <button onclick="hideOwnerInputModal()" class="owner-btn secondary">取消</button>
+                    <button onclick="hideOwnerInputModal(true)" class="owner-btn secondary">取消</button>
                 </div>
             </div>
         </div>
@@ -284,7 +284,7 @@
                     <button onclick="finalizeOwnerFound()" class="owner-btn primary confirm" id="finalConfirmBtn">
                         🎉 確認歸還
                     </button>
-                    <button onclick="hideOwnerConfirmModal()" class="owner-btn secondary">重新輸入</button>
+                    <button onclick="reInputOwnerName()" class="owner-btn secondary">重新輸入</button>
                 </div>
             </div>
         </div>
